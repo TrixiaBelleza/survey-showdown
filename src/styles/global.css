@@ -1,0 +1,200 @@
+/* Fonts are bundled locally (SIL Open Font License) so the app never needs the
+   network during a live show. */
+@font-face {
+  font-family: 'Anton';
+  src: url('./fonts/anton-latin.woff2') format('woff2');
+  font-weight: 400;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Inter';
+  src: url('./fonts/inter-latin.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root {
+  --bg-0: #05060f;
+  --bg-1: #0b0f22;
+  --bg-2: #131a35;
+  --bg-3: #1b2447;
+  --line: #2a3565;
+  --line-soft: #1e2748;
+  --text: #eef1ff;
+  --text-dim: #9aa4cf;
+  --text-faint: #6b76a5;
+  --gold: #ffd257;
+  --gold-deep: #f0a815;
+  --good: #34d399;
+  --bad: #fb7185;
+  --accent: #6d8cff;
+
+  --font-display: 'Anton', 'Arial Narrow', Impact, sans-serif;
+  --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --radius: 10px;
+  --shadow-lift: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg-0);
+  color: var(--text);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+::selection {
+  background: var(--gold);
+  color: #1a1300;
+}
+
+/* ---------- shared button system ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--bg-3), var(--bg-2));
+  color: var(--text);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: transform 0.08s ease, filter 0.15s ease, box-shadow 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn:hover:not(:disabled) {
+  filter: brightness(1.25);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.btn.primary {
+  background: linear-gradient(180deg, var(--gold), var(--gold-deep));
+  border-color: #ffe9a8;
+  color: #241a00;
+  box-shadow: 0 6px 18px rgba(240, 168, 21, 0.28);
+}
+
+.btn.go {
+  background: linear-gradient(180deg, #37d67a, #17a558);
+  border-color: #8ff0bb;
+  color: #062015;
+}
+
+.btn.danger {
+  background: linear-gradient(180deg, #f4566f, #c92a45);
+  border-color: #ffb3c0;
+  color: #2a0009;
+}
+
+.btn.ghost {
+  background: transparent;
+  border-color: var(--line-soft);
+  color: var(--text-dim);
+}
+
+.btn.xl {
+  font-size: 17px;
+  padding: 16px 22px;
+  letter-spacing: 0.08em;
+}
+
+.btn.sm {
+  font-size: 11px;
+  padding: 6px 9px;
+  letter-spacing: 0.04em;
+}
+
+.btn.icon {
+  padding: 5px 8px;
+  font-size: 12px;
+  letter-spacing: 0;
+}
+
+.btn.block {
+  width: 100%;
+}
+
+.kbd {
+  display: inline-block;
+  min-width: 18px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.35);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-faint);
+}
+
+.field {
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid var(--line-soft);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  width: 100%;
+}
+
+.field:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(109, 140, 255, 0.25);
+}
+
+.scroll {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+.scroll::-webkit-scrollbar {
+  width: 9px;
+}
+
+.scroll::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 999px;
+}
+
+.scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
