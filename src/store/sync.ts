@@ -1,8 +1,9 @@
 import type { GameState } from '../types'
 import { useGame } from './gameStore'
 import type { Store } from './gameStore'
+import { migrateState } from './migrate'
 
-const STORAGE_KEY = 'survey-showdown:state:v1'
+const STORAGE_KEY = 'survey-showdown:state:v2'
 const CHANNEL_NAME = 'survey-showdown'
 
 type Message = { type: 'state'; state: GameState; from: string } | { type: 'hello'; from: string }
@@ -19,11 +20,11 @@ function strip(state: Store): GameState {
 
 function loadPersisted(): GameState | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem('survey-showdown:state:v1')
     if (!raw) return null
-    const parsed = JSON.parse(raw) as GameState
+    const parsed = JSON.parse(raw) as Partial<GameState>
     if (!parsed || !Array.isArray(parsed.teams) || !Array.isArray(parsed.questions)) return null
-    return parsed
+    return migrateState(parsed as Partial<GameState> & Pick<GameState, 'teams' | 'questions'>)
   } catch {
     return null
   }
@@ -67,19 +68,18 @@ export function initSync(): () => void {
         return
       }
       applyingRemote = true
-      useGame.getState().actions.hydrate(msg.state)
+      useGame.getState().actions.hydrate(migrateState(msg.state))
       applyingRemote = false
     }
     channel.postMessage({ type: 'hello', from: windowId } satisfies Message)
   }
 
-  // localStorage events are the fallback when BroadcastChannel is unavailable
   const onStorage = (event: StorageEvent) => {
-    if (event.key !== STORAGE_KEY || !event.newValue) return
+    if ((event.key !== STORAGE_KEY && event.key !== 'survey-showdown:state:v1') || !event.newValue) return
     try {
-      const next = JSON.parse(event.newValue) as GameState
+      const next = JSON.parse(event.newValue) as Partial<GameState>
       applyingRemote = true
-      useGame.getState().actions.hydrate(next)
+      useGame.getState().actions.hydrate(migrateState(next as Partial<GameState> & Pick<GameState, 'teams' | 'questions'>))
       applyingRemote = false
     } catch {
       /* ignore malformed payloads */
@@ -96,4 +96,5 @@ export function initSync(): () => void {
 
 export function clearPersisted() {
   localStorage.removeItem(STORAGE_KEY)
+  localStorage.removeItem('survey-showdown:state:v1')
 }

@@ -107,28 +107,31 @@ Then open the preview URL Vite prints (often **http://localhost:4173/**).
 
 1. **Setup tab** — set the game name, paste a roster and **Generate Teams**, or edit teams/players
    manually. Assign a question to each team in the **Questions** tab.
-2. Click **Start Game — \<team\>** in the lobby. The question and ten hidden cards appear on Monitor 1.
-3. Click a player chip, then **Start** (or <kbd>Space</kbd>) for the 5-second timer. The player's
+2. Click **Show Rosters** in the top bar so Monitor 1 shows every team and its players ("Find Your
+   Team"). Starting a team turn hides it again. The lobby screen also lists all rosters, and the
+   active team's players run under the question during a turn with the current player highlighted.
+3. Click **Start Game — \<team\>** in the lobby. The question and ten hidden cards appear on Monitor 1.
+4. Click a player chip, then **Start** (or <kbd>Space</kbd>) for the 5-second timer. The player's
    name is already on Monitor 1.
-4. The player answers verbally. **You are the judge** — there is no automatic matching. If it counts,
+5. The player answers verbally. **You are the judge** — there is no automatic matching. If it counts,
    click the answer row (or press its number) and the card flips on Monitor 1.
-5. Click **Next Player** (or <kbd>Enter</kbd>). Repeat.
-6. The turn ends when all ten answers are revealed or both rotations are used — the console shows a
-   prompt. Click **End Team Turn** any time to stop early.
-7. **Next Team →**, and repeat. When every team has played, use **Show Scores**, run a
-   **Tiebreaker** if needed, then **End Game**.
+6. Click **Next Player** (or <kbd>Enter</kbd>). Repeat.
+7. The turn runs on the team round timer. End it yourself when time is up, or when all ten answers
+   are revealed (the console prompts you). Click **End Team Turn** any time.
+8. **Next Team →**, and repeat. When every team has played, click **Show Results Board** (team /
+   words / last-word time), then **End Game**.
 
 ### Keyboard shortcuts (Host Control only)
 
 | Key | Action |
 | --- | --- |
 | <kbd>Space</kbd> | Start / pause the 5-second timer (starting again restarts a full 5s) |
-| <kbd>Enter</kbd> | Next player (next team during a tiebreaker) |
+| <kbd>Enter</kbd> | Next player |
 | <kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd> | Reveal / hide answers 1–10 |
 | <kbd>U</kbd> | Undo the last reveal |
 | <kbd>R</kbd> | Next rotation |
 | <kbd>E</kbd> | End team turn |
-| <kbd>S</kbd> | Toggle the scoreboard on Monitor 1 |
+| <kbd>S</kbd> | Toggle the results board on Monitor 1 |
 
 Shortcuts are ignored while you're typing in a field.
 
@@ -136,13 +139,18 @@ Shortcuts are ignored while you're typing in a field.
 
 - No face-off, no captain, no steals, no strikes, no per-answer point values.
 - Each team gets one question with ten hidden answers. The host sees them all; the audience sees cards.
-- Players answer in list order, one guess each. After the last player a new rotation starts.
-- A turn ends when **all ten answers are revealed** or **two full rotations** are complete. The host
-  can also end it early.
+- Players answer in list order, one guess each. After the last player a new rotation starts
+  (informational only — there is no rotation cap).
+- A turn ends when the **team round timer** runs out or the host clicks **End Team Turn**. Revealing
+  all ten answers also prompts the host to end.
 - **Score = number of answers revealed**, shown as "Answers Revealed" everywhere. The host can pin a
   manual score (`+1` / `−1` / type a number) and press ⟲ to go back to the automatic count.
-- **Tiebreaker**: pick the tied teams and one shared question. Teams alternate; the first team to
-  reveal the ★ **rank 1** answer wins. Answer order in the Questions tab defines rank.
+- Each card flip records **elapsed time from turn start**. Only the **last** reveal’s time is kept for
+  ranking (undo / hide recalculates from remaining flips).
+- **Ties on word count** are broken by **faster last-word time** (lower elapsed wins). Use
+  **Show Results Board** after all teams finish — columns are Team, Words, Last word at.
+- Spare questions in the bank (e.g. night-shift jobs) can be assigned if you generate more than four
+  teams. There is no separate ★ #1 tiebreaker round.
 
 ## Error prevention
 
@@ -169,5 +177,9 @@ src/
 ```
 
 Sample data loads on first run. **Setup → Restore Sample Game** brings the sample bank back after edits.
+
+**Trial Mode** (top bar) keeps your Setup teams and players, swaps in the funny practice questions,
+and clears trial scores so you can rehearse. Teams get the trial questions in order (1st, 2nd, 3rd…),
+cycling if you have more teams than questions. **Exit Trial Mode** restores the real questions, scores, and progress.
 
 Bundled fonts are Anton and Inter (SIL Open Font License).

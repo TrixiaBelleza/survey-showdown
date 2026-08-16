@@ -14,7 +14,7 @@ export type Team = {
 export type Answer = {
   id: string
   text: string
-  /** rank 1 = most common survey answer. Used to decide the tiebreaker. */
+  /** rank 1 = most common survey answer (display order). */
   rank: number
   note?: string
 }
@@ -30,6 +30,12 @@ export type Question = {
 export type Round = {
   /** answer ids in the order they were revealed (last item = undo target) */
   revealed: string[]
+  /** Elapsed ms from turn start for each reveal, parallel to `revealed` */
+  revealElapsedMs: number[]
+  /** Convenience: elapsed of last reveal, or null if none */
+  lastRevealElapsedMs: number | null
+  /** Epoch ms when this team's turn clock started (for computing elapsed) */
+  turnStartedAt: number | null
   rotation: number
   currentPlayerId: string | null
   /** how many player turns have been used in this round */
@@ -44,16 +50,16 @@ export type TimerState = {
   endsAt: number | null
   /** ms left while paused, null when not paused */
   pausedMs: number | null
-  /** timer widget is on screen (host started it at least once this turn) */
+  /** timer widget is on screen */
   visible: boolean
 }
 
+/** Legacy stub kept so old localStorage saves still migrate. */
 export type TiebreakerState = {
   active: boolean
   questionId: string | null
   teamIds: string[]
   revealed: string[]
-  /** which answer id was the winning #1 reveal */
   currentTeamId: string | null
   currentPlayerId: string | null
   winnerTeamId: string | null
@@ -66,6 +72,20 @@ export type Phase =
   | 'tiebreaker'
   | 'game-over'
 
+/** Snapshot used to restore the real game after Trial Mode. */
+export type TrialSnapshot = {
+  teams: Team[]
+  questions: Question[]
+  rounds: Record<string, Round>
+  scoreOverrides: Record<string, number | null>
+  phase: Phase
+  activeTeamId: string | null
+  tiebreaker: TiebreakerState
+  showScores: boolean
+  showResultsBoard: boolean
+  gameName: string
+}
+
 export type GameState = {
   gameName: string
   teams: Team[]
@@ -75,16 +95,31 @@ export type GameState = {
   scoreOverrides: Record<string, number | null>
   phase: Phase
   activeTeamId: string | null
+  /** optional 5-second per-player buzz (host pacing aid) */
   timer: TimerState
+  /** team turn clock — shown on Monitor 1 */
+  roundTimer: TimerState
+  /** configured length for each team turn (default 2:30) */
+  roundDurationMs: number
+  /** Legacy stub for old saves — UI no longer drives a ★ #1 tiebreaker */
   tiebreaker: TiebreakerState
   /** show the scoreboard overlay on Monitor 1 */
   showScores: boolean
+  /** show every team's roster on Monitor 1 */
+  showRosters: boolean
+  /** show the speed results table on Monitor 1 */
+  showResultsBoard: boolean
   soundOn: boolean
+  trialMode: boolean
+  trialSnapshot: TrialSnapshot | null
 }
 
-export const ROTATION_LIMIT = 2
 export const ANSWERS_PER_QUESTION = 10
 export const TIMER_MS = 5000
+/** Default team turn length: 2 minutes 30 seconds */
+export const ROUND_DURATION_MS = 150_000
+/** Play a warning sound when the round clock reaches this many ms remaining */
+export const ROUND_WARNING_MS = 10_000
 
 export const TEAM_COLORS: { name: string; value: string }[] = [
   { name: 'Red', value: '#ef4444' },

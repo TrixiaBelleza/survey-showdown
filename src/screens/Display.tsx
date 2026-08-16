@@ -1,9 +1,8 @@
 import { AnswerCard } from '../components/AnswerCard'
-import { DisplayTimer } from '../components/TimerReadout'
+import { DisplayRoundTimer } from '../components/TimerReadout'
 import { teamVars } from '../lib/css'
 import { useGame } from '../store/gameStore'
-import { questionOfTeam, rankedTeams, roundOf, teamById, teamScore } from '../store/selectors'
-import { ROTATION_LIMIT } from '../types'
+import { questionOfTeam, rankedTeams, resultsRows, roundOf, teamById, teamScore } from '../store/selectors'
 import '../styles/display.css'
 
 export function Display() {
@@ -12,24 +11,73 @@ export function Display() {
   const activeTeam = teamById(state, state.activeTeamId)
   const round = roundOf(state, state.activeTeamId)
   const question = questionOfTeam(state, state.activeTeamId)
-  const tb = state.tiebreaker
-  const tbQuestion = state.questions.find((q) => q.id === tb.questionId) ?? null
-  const tbTeam = teamById(state, tb.currentTeamId)
+  const trialBanner = state.trialMode ? <div className="dsp-trial-banner">Trial Mode — practice only</div> : null
+
+  // ---------- speed results board (final standings + host toggle) ----------
+  if (state.showResultsBoard || state.phase === 'game-over') {
+    const rows = resultsRows(state)
+    const finished = state.phase === 'game-over'
+    const leaders = rows.filter((r) => r.rank === 1)
+    const winner = leaders.length === 1 ? leaders[0]!.team : null
+    return (
+      <div className="display">
+        {trialBanner}
+        <div className="dsp-header">
+          <span className="dsp-brand">{state.gameName}</span>
+          <span className="dsp-brand">{finished ? 'Final Results' : 'Results'}</span>
+        </div>
+        <div className="dsp-center">
+          <h1 className="dsp-title" style={{ fontSize: '7vh' }}>
+            {finished ? 'Final Results' : 'Results Board'}
+          </h1>
+          <div className="dsp-results">
+            <div className="dsp-results-head">
+              <span>Team</span>
+              <span>Words</span>
+              <span>Last word at</span>
+            </div>
+            {rows.map((r) => (
+              <div
+                key={r.team.id}
+                className={`dsp-results-row${r.rank === 1 ? ' leader' : ''}`}
+                style={teamVars(r.team.color)}
+              >
+                <span className="dsp-results-team">
+                  <span className="dsp-score-rank">{r.rank}</span>
+                  <span className="dsp-team-dot" style={{ width: '2vh', height: '2vh' }} />
+                  {r.team.name}
+                </span>
+                <span className="dsp-results-words">{r.words}</span>
+                <span className="dsp-results-time">{r.lastWordAt}</span>
+              </div>
+            ))}
+          </div>
+          {finished && winner && (
+            <div className="dsp-winner" style={teamVars(winner.color)}>
+              <small>Champion</small>
+              <strong>{winner.name}</strong>
+            </div>
+          )}
+          {finished && !winner && leaders.length > 1 && (
+            <div className="dsp-banner">Joint leaders — same words and last-word time</div>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   // ---------- scoreboard takeover ----------
-  if (state.showScores || state.phase === 'game-over') {
+  if (state.showScores) {
     const rows = rankedTeams(state)
-    const finished = state.phase === 'game-over'
-    const winner = tb.winnerTeamId ? teamById(state, tb.winnerTeamId) : rows[0]?.rank === 1 && rows.filter((r) => r.rank === 1).length === 1 ? rows[0].team : null
     return (
       <div className="display">
         <div className="dsp-header">
           <span className="dsp-brand">{state.gameName}</span>
-          <span className="dsp-brand">{finished ? 'Final Standings' : 'Scoreboard'}</span>
+          <span className="dsp-brand">Scoreboard</span>
         </div>
         <div className="dsp-center">
           <h1 className="dsp-title" style={{ fontSize: '9vh' }}>
-            {finished ? 'Final Scores' : 'Answers Revealed'}
+            Answers Revealed
           </h1>
           <div className="dsp-scores">
             {rows.map(({ team, score, rank }) => (
@@ -43,79 +91,42 @@ export function Display() {
               </div>
             ))}
           </div>
-          {finished && winner && (
-            <div className="dsp-winner" style={teamVars(winner.color)}>
-              <small>Champion</small>
-              <strong>{winner.name}</strong>
-            </div>
-          )}
-          {finished && !winner && <div className="dsp-banner">Tie at the top — tiebreaker required</div>}
         </div>
       </div>
     )
   }
 
-  // ---------- tiebreaker ----------
-  if (state.phase === 'tiebreaker' && tb.active) {
-    const winner = teamById(state, tb.winnerTeamId)
-    const tbPlayerName = tbTeam?.players.find((p) => p.id === tb.currentPlayerId)?.name ?? null
+  // ---------- roster takeover ----------
+  if (state.showRosters) {
     return (
-      <div className="display" style={teamVars(tbTeam?.color ?? '#6d8cff')}>
+      <div className="display">
+        {trialBanner}
         <div className="dsp-header">
-          <div className="dsp-team">
-            <span className="dsp-team-dot" />
-            <span className="dsp-team-name">Tiebreaker</span>
-          </div>
-          <div className="dsp-tb-teams">
-            {tb.teamIds.map((id) => {
-              const t = teamById(state, id)
-              if (!t) return null
-              return (
-                <div key={id} className={`dsp-tb-team${id === tb.currentTeamId ? ' active' : ''}`} style={teamVars(t.color)}>
+          <span className="dsp-brand">{state.gameName}</span>
+          <span className="dsp-brand">Teams</span>
+        </div>
+        <div className="dsp-center">
+          <h1 className="dsp-title" style={{ fontSize: '8vh' }}>
+            Find Your Team
+          </h1>
+          <div className={`dsp-roster-grid cols-${Math.min(state.teams.length || 1, 4)}`}>
+            {state.teams.map((t) => (
+              <div key={t.id} className="dsp-roster-card" style={teamVars(t.color)}>
+                <header>
                   <span className="dsp-team-dot" style={{ width: '2.2vh', height: '2.2vh' }} />
-                  {t.name}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        <div className="dsp-question">
-          <small>Tiebreaker Question — first team to reveal the #1 answer wins</small>
-          <p>{tbQuestion?.text ?? 'No tiebreaker question selected'}</p>
-        </div>
-
-        {winner ? (
-          <div className="dsp-center">
-            <div className="dsp-winner" style={teamVars(winner.color)}>
-              <small>Tiebreaker Winner</small>
-              <strong>{winner.name}</strong>
-            </div>
-            <div className="dsp-banner">Revealed the #1 answer</div>
-          </div>
-        ) : (
-          <div className="dsp-board">
-            {(tbQuestion?.answers ?? []).map((a, i) => (
-              <AnswerCard key={a.id} index={i + 1} text={a.text} revealed={tb.revealed.includes(a.id)} highlight={a.rank === 1} />
+                  <span>{t.name}</span>
+                </header>
+                <ul>
+                  {t.players.map((p) => (
+                    <li key={p.id}>{p.name}</li>
+                  ))}
+                  {t.players.length === 0 && <li className="muted">No players yet</li>}
+                </ul>
+              </div>
             ))}
           </div>
-        )}
-
-        {!winner && (
-          <div className="dsp-footer">
-            <div className="dsp-player" style={teamVars(tbTeam?.color ?? '#6d8cff')}>
-              <small>{tbTeam ? `${tbTeam.name} — Current Player` : 'Current Player'}</small>
-              <strong>{tbPlayerName ?? '—'}</strong>
-            </div>
-            <DisplayTimer />
-            <div className="dsp-meta">
-              <span className="dsp-meta-row">
-                Revealed <b>{tb.revealed.length}</b> / {tbQuestion?.answers.length ?? 0}
-              </span>
-              <span className="dsp-meta-row">Teams alternate turns</span>
-            </div>
-          </div>
-        )}
+          {state.teams.length === 0 && <div className="dsp-empty">Add teams in the Host Control Panel</div>}
+        </div>
       </div>
     )
   }
@@ -126,6 +137,7 @@ export function Display() {
     const playerIndex = activeTeam.players.findIndex((p) => p.id === round.currentPlayerId)
     return (
       <div className="display" style={teamVars(activeTeam.color)}>
+        {trialBanner}
         <div className="dsp-header">
           <div className="dsp-team">
             <span className="dsp-team-dot" />
@@ -145,6 +157,14 @@ export function Display() {
           <p>{question.text}</p>
         </div>
 
+        <div className="dsp-roster-strip">
+          {activeTeam.players.map((p, i) => (
+            <span key={p.id} className={`dsp-roster-chip${i === playerIndex ? ' active' : i < playerIndex ? ' used' : ''}`}>
+              {p.name}
+            </span>
+          ))}
+        </div>
+
         <div className="dsp-board">
           {question.answers.map((a, i) => (
             <AnswerCard key={a.id} index={i + 1} text={a.text} revealed={round.revealed.includes(a.id)} />
@@ -156,10 +176,10 @@ export function Display() {
             <small>Current Player</small>
             <strong>{playerName ?? 'Waiting…'}</strong>
           </div>
-          <DisplayTimer />
+          <DisplayRoundTimer />
           <div className="dsp-meta">
             <span className="dsp-meta-row">
-              Rotation <b>{Math.min(round.rotation, ROTATION_LIMIT)}</b> of {ROTATION_LIMIT}
+              Rotation <b>{round.rotation}</b>
             </span>
             <div className="dsp-dots">
               {activeTeam.players.map((p, i) => (
@@ -206,25 +226,33 @@ export function Display() {
   // ---------- lobby / title ----------
   return (
     <div className="display">
+      {trialBanner}
       <div className="dsp-center">
         <h1 className="dsp-title">{state.gameName}</h1>
         <div className="dsp-subtitle">Survey · Showdown · Live</div>
-        {activeTeam ? (
+        {activeTeam && (
           <div className="dsp-upnext" style={teamVars(activeTeam.color)}>
             <small>Up Next</small>
             <strong>{activeTeam.name}</strong>
-          </div>
-        ) : (
-          <div className="dsp-lobby-teams">
-            {state.teams.map((t) => (
-              <div key={t.id} className="dsp-lobby-team" style={teamVars(t.color)}>
-                <span className="dsp-team-dot" style={{ width: '2.4vh', height: '2.4vh' }} />
-                {t.name}
-                <em>{t.players.length} players</em>
-              </div>
-            ))}
+            {activeTeam.players.length > 0 && <em>{activeTeam.players.map((p) => p.name).join(' · ')}</em>}
           </div>
         )}
+        <div className={`dsp-roster-grid cols-${Math.min(state.teams.length || 1, 4)}`}>
+          {state.teams.map((t) => (
+            <div key={t.id} className={`dsp-roster-card${t.id === activeTeam?.id ? ' active' : ''}`} style={teamVars(t.color)}>
+              <header>
+                <span className="dsp-team-dot" style={{ width: '2.2vh', height: '2.2vh' }} />
+                <span>{t.name}</span>
+              </header>
+              <ul>
+                {t.players.map((p) => (
+                  <li key={p.id}>{p.name}</li>
+                ))}
+                {t.players.length === 0 && <li className="muted">No players yet</li>}
+              </ul>
+            </div>
+          ))}
+        </div>
         {state.teams.length === 0 && <div className="dsp-empty">Add teams in the Host Control Panel</div>}
       </div>
     </div>

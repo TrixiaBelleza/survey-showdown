@@ -1,4 +1,4 @@
-type Cue = 'reveal' | 'tick' | 'time' | 'start' | 'win' | 'undo'
+type Cue = 'reveal' | 'tick' | 'time' | 'start' | 'win' | 'undo' | 'warning'
 
 let ctx: AudioContext | null = null
 let enabled = true
@@ -59,6 +59,12 @@ export function play(cue: Cue) {
     case 'start':
       tone(520, 0, 0.12, 0.16, 'triangle')
       tone(780, 0.1, 0.16, 0.14, 'triangle')
+      break
+    case 'warning':
+      // Final 10 seconds of the team round clock
+      tone(740, 0, 0.12, 0.22, 'square')
+      tone(520, 0.1, 0.22, 0.2, 'sawtooth')
+      tone(740, 0.28, 0.18, 0.18, 'square')
       break
     case 'win':
       [523, 659, 784, 1046].forEach((f, i) => tone(f, i * 0.12, 0.3, 0.2, 'triangle'))

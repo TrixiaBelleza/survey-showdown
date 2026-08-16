@@ -1,15 +1,16 @@
 import { create } from 'zustand'
-import type { GameState, Player, Question, Team } from '../types'
-import { ANSWERS_PER_QUESTION, ROTATION_LIMIT, TEAM_COLORS } from '../types'
-import { createSampleState, emptyRound } from '../data/sampleGame'
+import type { GameState, Player, Question, Team, TrialSnapshot } from '../types'
+import { ANSWERS_PER_QUESTION, TEAM_COLORS, TIMER_MS } from '../types'
+import { createSampleState, emptyRound, emptyTimer, TRIAL_QUESTIONS } from '../data/sampleGame'
 import { buildRandomTeams } from '../lib/generateTeams'
+import { migrateState } from './migrate'
 import { uid } from '../lib/id'
 
 type Patch<T> = Partial<T>
 
 export type Actions = {
-  // config
   setGameName: (name: string) => void
+  setRoundDurationMs: (ms: number) => void
   addTeam: () => void
   updateTeam: (teamId: string, patch: Patch<Team>) => void
   removeTeam: (teamId: string) => void
@@ -19,10 +20,8 @@ export type Actions = {
   removePlayer: (teamId: string, playerId: string) => void
   movePlayer: (teamId: string, playerId: string, dir: -1 | 1) => void
   assignQuestion: (teamId: string, questionId: string | null) => void
-  /** Replace all teams with a random split of the given names. Keeps the question bank. */
   generateTeams: (names: string[], teamCount: number, teamLabels?: string[]) => void
 
-  // question bank
   addQuestion: () => string
   updateQuestion: (questionId: string, patch: Patch<Question>) => void
   duplicateQuestion: (questionId: string) => void
@@ -30,7 +29,6 @@ export type Actions = {
   updateAnswer: (questionId: string, answerId: string, patch: { text?: string; note?: string }) => void
   moveAnswer: (questionId: string, answerId: string, dir: -1 | 1) => void
 
-  // flow
   setActiveTeam: (teamId: string | null) => void
   startTeam: (teamId: string) => void
   selectPlayer: (playerId: string) => void
@@ -46,29 +44,25 @@ export type Actions = {
   resetGameProgress: () => void
   resetEverything: () => void
 
-  // score
   setScoreOverride: (teamId: string, value: number | null) => void
   bumpScore: (teamId: string, delta: number) => void
   setShowScores: (show: boolean) => void
+  setShowRosters: (show: boolean) => void
+  setShowResultsBoard: (show: boolean) => void
   toggleSound: () => void
 
-  // timer
   startTimer: () => void
   pauseTimer: () => void
   resetTimer: () => void
   hideTimer: () => void
 
-  // tiebreaker
-  startTiebreaker: (teamIds: string[], questionId: string) => void
-  setTiebreakerQuestion: (questionId: string) => void
-  tbSelectTeam: (teamId: string) => void
-  tbSelectPlayer: (playerId: string) => void
-  tbToggleReveal: (answerId: string) => void
-  tbNextTeam: () => void
-  tbReset: () => void
-  endTiebreaker: () => void
+  startRoundTimer: () => void
+  pauseRoundTimer: () => void
+  resetRoundTimer: () => void
 
-  /** used by the cross-window sync layer */
+  enterTrialMode: () => void
+  exitTrialMode: () => void
+
   hydrate: (state: GameState) => void
 }
 
@@ -79,22 +73,65 @@ function ensureRound(state: GameState, teamId: string) {
   return state.rounds[teamId]
 }
 
-function clearedTimer(state: GameState) {
-  return { ...state.timer, endsAt: null, pausedMs: null, visible: false }
+function clearedTimer(durationMs: number) {
+  return emptyTimer(durationMs)
+}
+
+function snapshotForTrial(state: GameState): TrialSnapshot {
+  return {
+    teams: state.teams.map((t) => ({ ...t, players: t.players.map((p) => ({ ...p })) })),
+    questions: state.questions.map((q) => ({ ...q, answers: q.answers.map((a) => ({ ...a })) })),
+    rounds: Object.fromEntries(
+      Object.entries(state.rounds).map(([k, v]) => [
+        k,
+        { ...v, revealed: [...v.revealed], revealElapsedMs: [...(v.revealElapsedMs ?? [])] },
+      ]),
+    ),
+    scoreOverrides: { ...state.scoreOverrides },
+    phase: state.phase,
+    activeTeamId: state.activeTeamId,
+    tiebreaker: {
+      ...state.tiebreaker,
+      teamIds: [...state.tiebreaker.teamIds],
+      revealed: [...state.tiebreaker.revealed],
+    },
+    showScores: state.showScores,
+    showResultsBoard: state.showResultsBoard,
+    gameName: state.gameName,
+  }
+}
+
+function elapsedNow(round: { turnStartedAt: number | null }, roundTimer: GameState['roundTimer'], roundDurationMs: number): number {
+  if (round.turnStartedAt) return Math.max(0, Date.now() - round.turnStartedAt)
+  // Fallback if turnStartedAt missing (old mid-turn save): infer from round clock.
+  if (roundTimer.endsAt) return Math.max(0, roundDurationMs - Math.max(0, roundTimer.endsAt - Date.now()))
+  if (typeof roundTimer.pausedMs === 'number') return Math.max(0, roundDurationMs - roundTimer.pausedMs)
+  return 0
+}
+
+function syncLastReveal(round: { revealElapsedMs: number[]; lastRevealElapsedMs: number | null }) {
+  round.lastRevealElapsedMs =
+    round.revealElapsedMs.length > 0 ? round.revealElapsedMs[round.revealElapsedMs.length - 1]! : null
 }
 
 export const useGame = create<Store>()((set, get) => {
-  /** immutably clone the parts of state an action touches, then mutate freely */
   const mutate = (fn: (draft: GameState) => void) =>
     set((prev) => {
       const draft: GameState = {
         ...prev,
         teams: prev.teams.map((t) => ({ ...t, players: [...t.players] })),
         questions: prev.questions.map((q) => ({ ...q, answers: [...q.answers] })),
-        rounds: Object.fromEntries(Object.entries(prev.rounds).map(([k, v]) => [k, { ...v, revealed: [...v.revealed] }])),
+        rounds: Object.fromEntries(
+          Object.entries(prev.rounds).map(([k, v]) => [
+            k,
+            { ...v, revealed: [...v.revealed], revealElapsedMs: [...(v.revealElapsedMs ?? [])] },
+          ]),
+        ),
         scoreOverrides: { ...prev.scoreOverrides },
         timer: { ...prev.timer },
+        roundTimer: { ...prev.roundTimer },
         tiebreaker: { ...prev.tiebreaker, teamIds: [...prev.tiebreaker.teamIds], revealed: [...prev.tiebreaker.revealed] },
+        trialSnapshot: prev.trialSnapshot,
       }
       fn(draft)
       return draft
@@ -104,6 +141,21 @@ export const useGame = create<Store>()((set, get) => {
     ...createSampleState(),
     actions: {
       setGameName: (name) => mutate((d) => void (d.gameName = name)),
+
+      setRoundDurationMs: (ms) =>
+        mutate((d) => {
+          const clamped = Math.max(30_000, Math.min(30 * 60_000, Math.round(ms)))
+          d.roundDurationMs = clamped
+          if (!d.roundTimer.endsAt) {
+            d.roundTimer = {
+              ...d.roundTimer,
+              durationMs: clamped,
+              pausedMs: d.roundTimer.visible ? clamped : null,
+            }
+          } else {
+            d.roundTimer = { ...d.roundTimer, durationMs: clamped }
+          }
+        }),
 
       addTeam: () =>
         mutate((d) => {
@@ -182,7 +234,6 @@ export const useGame = create<Store>()((set, get) => {
         mutate((d) => {
           if (names.length === 0) return
           const teams = buildRandomTeams(names, teamCount, teamLabels)
-          // Keep the question bank; assign one question per team by index when available.
           teams.forEach((t, i) => {
             t.questionId = d.questions[i]?.id ?? null
           })
@@ -192,7 +243,10 @@ export const useGame = create<Store>()((set, get) => {
           d.phase = 'lobby'
           d.activeTeamId = null
           d.showScores = false
-          d.timer = clearedTimer(d)
+          d.showRosters = false
+          d.showResultsBoard = false
+          d.timer = clearedTimer(TIMER_MS)
+          d.roundTimer = clearedTimer(d.roundDurationMs)
           d.tiebreaker = {
             ...d.tiebreaker,
             active: false,
@@ -266,7 +320,8 @@ export const useGame = create<Store>()((set, get) => {
       setActiveTeam: (teamId) =>
         mutate((d) => {
           d.activeTeamId = teamId
-          d.timer = clearedTimer(d)
+          d.timer = clearedTimer(TIMER_MS)
+          d.roundTimer = clearedTimer(d.roundDurationMs)
           if (teamId && d.phase === 'team-summary') d.phase = 'lobby'
         }),
 
@@ -274,13 +329,32 @@ export const useGame = create<Store>()((set, get) => {
         mutate((d) => {
           const t = d.teams.find((x) => x.id === teamId)
           if (!t) return
+          const now = Date.now()
           d.activeTeamId = teamId
           d.phase = 'team-turn'
           d.showScores = false
-          d.timer = clearedTimer(d)
+          d.showRosters = false
+          d.showResultsBoard = false
+          d.timer = clearedTimer(TIMER_MS)
+          d.roundTimer = {
+            durationMs: d.roundDurationMs,
+            endsAt: now + d.roundDurationMs,
+            pausedMs: null,
+            visible: true,
+          }
           const round = ensureRound(d, teamId)
           round.started = true
           round.ended = false
+          round.turnStartedAt = now
+          // Fresh turn clock — if the board was empty, keep timing empty; if host is restarting
+          // after a reset, arrays are already empty. Don't invent timestamps for leftover reveals.
+          if (round.revealed.length === 0) {
+            round.revealElapsedMs = []
+            round.lastRevealElapsedMs = null
+          } else if ((round.revealElapsedMs?.length ?? 0) !== round.revealed.length) {
+            round.revealElapsedMs = []
+            round.lastRevealElapsedMs = null
+          }
           if (!round.currentPlayerId) round.currentPlayerId = t.players[0]?.id ?? null
         }),
 
@@ -289,7 +363,7 @@ export const useGame = create<Store>()((set, get) => {
           if (!d.activeTeamId) return
           const round = ensureRound(d, d.activeTeamId)
           round.currentPlayerId = playerId
-          d.timer = clearedTimer(d)
+          d.timer = clearedTimer(TIMER_MS)
         }),
 
       nextPlayer: () =>
@@ -308,7 +382,7 @@ export const useGame = create<Store>()((set, get) => {
           } else {
             round.currentPlayerId = team.players[i + 1].id
           }
-          d.timer = clearedTimer(d)
+          d.timer = clearedTimer(TIMER_MS)
         }),
 
       nextRotation: () =>
@@ -318,16 +392,26 @@ export const useGame = create<Store>()((set, get) => {
           const round = ensureRound(d, d.activeTeamId)
           round.rotation += 1
           round.currentPlayerId = team?.players[0]?.id ?? null
-          d.timer = clearedTimer(d)
+          d.timer = clearedTimer(TIMER_MS)
         }),
 
       toggleReveal: (answerId) =>
         mutate((d) => {
           if (!d.activeTeamId) return
           const round = ensureRound(d, d.activeTeamId)
-          round.revealed = round.revealed.includes(answerId)
-            ? round.revealed.filter((id) => id !== answerId)
-            : [...round.revealed, answerId]
+          if (!round.revealElapsedMs) round.revealElapsedMs = []
+          const idx = round.revealed.indexOf(answerId)
+          if (idx >= 0) {
+            round.revealed = round.revealed.filter((id) => id !== answerId)
+            round.revealElapsedMs = round.revealElapsedMs.filter((_, i) => i !== idx)
+            syncLastReveal(round)
+          } else {
+            const elapsed = elapsedNow(round, d.roundTimer, d.roundDurationMs)
+            if (!round.turnStartedAt) round.turnStartedAt = Date.now() - elapsed
+            round.revealed = [...round.revealed, answerId]
+            round.revealElapsedMs = [...round.revealElapsedMs, elapsed]
+            syncLastReveal(round)
+          }
         }),
 
       undoLastReveal: () =>
@@ -335,13 +419,16 @@ export const useGame = create<Store>()((set, get) => {
           if (!d.activeTeamId) return
           const round = ensureRound(d, d.activeTeamId)
           round.revealed = round.revealed.slice(0, -1)
+          round.revealElapsedMs = (round.revealElapsedMs ?? []).slice(0, -1)
+          syncLastReveal(round)
         }),
 
       resetBoard: (teamId) =>
         mutate((d) => {
           d.rounds[teamId] = emptyRound()
           delete d.scoreOverrides[teamId]
-          d.timer = clearedTimer(d)
+          d.timer = clearedTimer(TIMER_MS)
+          d.roundTimer = clearedTimer(d.roundDurationMs)
           if (d.activeTeamId === teamId && d.phase === 'team-summary') d.phase = 'lobby'
         }),
 
@@ -352,30 +439,38 @@ export const useGame = create<Store>()((set, get) => {
           round.ended = true
           round.started = true
           d.phase = 'team-summary'
-          d.timer = clearedTimer(d)
+          d.timer = clearedTimer(TIMER_MS)
+          d.roundTimer = clearedTimer(d.roundDurationMs)
         }),
 
       nextTeam: () =>
         mutate((d) => {
           const i = d.teams.findIndex((t) => t.id === d.activeTeamId)
-          const nextUp = d.teams.slice(i + 1).find((t) => !d.rounds[t.id]?.ended) ?? d.teams.find((t) => !d.rounds[t.id]?.ended)
+          const nextUp =
+            d.teams.slice(i + 1).find((t) => !d.rounds[t.id]?.ended) ?? d.teams.find((t) => !d.rounds[t.id]?.ended)
           d.activeTeamId = nextUp?.id ?? null
           d.phase = 'lobby'
           d.showScores = false
-          d.timer = clearedTimer(d)
+          d.showResultsBoard = false
+          d.timer = clearedTimer(TIMER_MS)
+          d.roundTimer = clearedTimer(d.roundDurationMs)
         }),
 
       backToLobby: () =>
         mutate((d) => {
           d.phase = 'lobby'
-          d.timer = clearedTimer(d)
+          d.timer = clearedTimer(TIMER_MS)
+          d.roundTimer = clearedTimer(d.roundDurationMs)
         }),
 
       endGame: () =>
         mutate((d) => {
           d.phase = 'game-over'
-          d.showScores = true
-          d.timer = clearedTimer(d)
+          d.showScores = false
+          d.showRosters = false
+          d.showResultsBoard = true
+          d.timer = clearedTimer(TIMER_MS)
+          d.roundTimer = clearedTimer(d.roundDurationMs)
           d.tiebreaker.active = false
         }),
 
@@ -386,16 +481,27 @@ export const useGame = create<Store>()((set, get) => {
           d.phase = 'lobby'
           d.activeTeamId = null
           d.showScores = false
-          d.timer = clearedTimer(d)
-          d.tiebreaker = { ...d.tiebreaker, active: false, teamIds: [], revealed: [], currentTeamId: null, currentPlayerId: null, winnerTeamId: null }
+          d.showRosters = false
+          d.showResultsBoard = false
+          d.timer = clearedTimer(TIMER_MS)
+          d.roundTimer = clearedTimer(d.roundDurationMs)
+          d.tiebreaker = {
+            ...d.tiebreaker,
+            active: false,
+            teamIds: [],
+            revealed: [],
+            currentTeamId: null,
+            currentPlayerId: null,
+            winnerTeamId: null,
+          }
         }),
 
       resetEverything: () => set({ ...createSampleState(), actions: get().actions }),
 
       setScoreOverride: (teamId, value) =>
         mutate((d) => {
-          if (value === null) delete d.scoreOverrides[teamId]
-          else d.scoreOverrides[teamId] = Math.max(0, Math.min(ANSWERS_PER_QUESTION * 2, value))
+          if (value === null || Number.isNaN(value)) delete d.scoreOverrides[teamId]
+          else d.scoreOverrides[teamId] = Math.max(0, Math.round(value))
         }),
 
       bumpScore: (teamId, delta) =>
@@ -404,14 +510,39 @@ export const useGame = create<Store>()((set, get) => {
           d.scoreOverrides[teamId] = Math.max(0, current + delta)
         }),
 
-      setShowScores: (show) => mutate((d) => void (d.showScores = show)),
+      setShowScores: (show) =>
+        mutate((d) => {
+          d.showScores = show
+          if (show) {
+            d.showRosters = false
+            d.showResultsBoard = false
+          }
+        }),
+
+      setShowRosters: (show) =>
+        mutate((d) => {
+          d.showRosters = show
+          if (show) {
+            d.showScores = false
+            d.showResultsBoard = false
+          }
+        }),
+
+      setShowResultsBoard: (show) =>
+        mutate((d) => {
+          d.showResultsBoard = show
+          if (show) {
+            d.showScores = false
+            d.showRosters = false
+          }
+        }),
+
       toggleSound: () => mutate((d) => void (d.soundOn = !d.soundOn)),
 
-      /** Start, resume from pause, or restart after TIME! — always a full 5s unless paused mid-count. */
       startTimer: () =>
         mutate((d) => {
-          const remaining = d.timer.pausedMs && d.timer.pausedMs > 0 ? d.timer.pausedMs : d.timer.durationMs
-          d.timer = { ...d.timer, endsAt: Date.now() + remaining, pausedMs: null, visible: true }
+          const remaining = d.timer.pausedMs && d.timer.pausedMs > 0 ? d.timer.pausedMs : TIMER_MS
+          d.timer = { durationMs: TIMER_MS, endsAt: Date.now() + remaining, pausedMs: null, visible: true }
         }),
 
       pauseTimer: () =>
@@ -422,88 +553,103 @@ export const useGame = create<Store>()((set, get) => {
 
       resetTimer: () =>
         mutate((d) => {
-          d.timer = { ...d.timer, endsAt: null, pausedMs: d.timer.durationMs, visible: true }
+          d.timer = { durationMs: TIMER_MS, endsAt: null, pausedMs: TIMER_MS, visible: true }
         }),
 
-      hideTimer: () => mutate((d) => void (d.timer = clearedTimer(d))),
+      hideTimer: () => mutate((d) => void (d.timer = clearedTimer(TIMER_MS))),
 
-      startTiebreaker: (teamIds, questionId) =>
+      startRoundTimer: () =>
         mutate((d) => {
-          d.phase = 'tiebreaker'
+          const remaining =
+            d.roundTimer.pausedMs && d.roundTimer.pausedMs > 0 ? d.roundTimer.pausedMs : d.roundDurationMs
+          d.roundTimer = {
+            durationMs: d.roundDurationMs,
+            endsAt: Date.now() + remaining,
+            pausedMs: null,
+            visible: true,
+          }
+        }),
+
+      pauseRoundTimer: () =>
+        mutate((d) => {
+          if (!d.roundTimer.endsAt) return
+          d.roundTimer = {
+            ...d.roundTimer,
+            pausedMs: Math.max(0, d.roundTimer.endsAt - Date.now()),
+            endsAt: null,
+          }
+        }),
+
+      resetRoundTimer: () =>
+        mutate((d) => {
+          d.roundTimer = {
+            durationMs: d.roundDurationMs,
+            endsAt: null,
+            pausedMs: d.roundDurationMs,
+            visible: true,
+          }
+        }),
+
+      enterTrialMode: () =>
+        mutate((d) => {
+          if (d.trialMode) return
+          if (d.teams.length === 0) return
+          d.trialSnapshot = snapshotForTrial(d)
+          const trialQuestions = TRIAL_QUESTIONS.map((q) => ({ ...q, answers: q.answers.map((a) => ({ ...a })) }))
+          d.trialMode = true
+          d.gameName = d.gameName.replace(/\s*—\s*Trial$/, '') + ' — Trial'
+          d.teams = d.teams.map((t, i) => ({
+            ...t,
+            players: t.players.map((p) => ({ ...p })),
+            questionId: trialQuestions[i % trialQuestions.length]?.id ?? null,
+          }))
+          d.questions = trialQuestions
+          d.rounds = Object.fromEntries(d.teams.map((t) => [t.id, emptyRound()]))
+          d.scoreOverrides = {}
+          d.phase = 'lobby'
+          d.activeTeamId = d.teams[0]?.id ?? null
           d.showScores = false
-          d.timer = clearedTimer(d)
+          d.showRosters = false
+          d.showResultsBoard = false
+          d.timer = clearedTimer(TIMER_MS)
+          d.roundTimer = clearedTimer(d.roundDurationMs)
           d.tiebreaker = {
-            active: true,
-            questionId,
-            teamIds,
+            active: false,
+            questionId: null,
+            teamIds: [],
             revealed: [],
-            currentTeamId: teamIds[0] ?? null,
-            currentPlayerId: d.teams.find((t) => t.id === teamIds[0])?.players[0]?.id ?? null,
+            currentTeamId: null,
+            currentPlayerId: null,
             winnerTeamId: null,
           }
         }),
 
-      setTiebreakerQuestion: (questionId) => mutate((d) => void (d.tiebreaker.questionId = questionId)),
-
-      tbSelectTeam: (teamId) =>
+      exitTrialMode: () =>
         mutate((d) => {
-          d.tiebreaker.currentTeamId = teamId
-          d.tiebreaker.currentPlayerId = d.teams.find((t) => t.id === teamId)?.players[0]?.id ?? null
-          d.timer = clearedTimer(d)
-        }),
-
-      tbSelectPlayer: (playerId) =>
-        mutate((d) => {
-          d.tiebreaker.currentPlayerId = playerId
-          d.timer = clearedTimer(d)
-        }),
-
-      tbToggleReveal: (answerId) =>
-        mutate((d) => {
-          const tb = d.tiebreaker
-          const q = d.questions.find((x) => x.id === tb.questionId)
-          const answer = q?.answers.find((a) => a.id === answerId)
-          if (tb.revealed.includes(answerId)) {
-            tb.revealed = tb.revealed.filter((id) => id !== answerId)
-            if (answer?.rank === 1) tb.winnerTeamId = null
-          } else {
-            tb.revealed = [...tb.revealed, answerId]
-            if (answer?.rank === 1) tb.winnerTeamId = tb.currentTeamId
+          const snap = d.trialSnapshot
+          if (!snap) {
+            d.trialMode = false
+            return
           }
+          d.trialMode = false
+          d.trialSnapshot = null
+          d.gameName = snap.gameName
+          d.teams = snap.teams
+          d.questions = snap.questions
+          d.rounds = snap.rounds
+          d.scoreOverrides = snap.scoreOverrides
+          d.phase = snap.phase === 'team-turn' || snap.phase === 'tiebreaker' ? 'lobby' : snap.phase
+          d.activeTeamId = snap.phase === 'team-turn' || snap.phase === 'tiebreaker' ? null : snap.activeTeamId
+          d.tiebreaker = snap.tiebreaker
+          d.showScores = snap.showScores
+          d.showResultsBoard = snap.showResultsBoard ?? false
+          d.timer = clearedTimer(TIMER_MS)
+          d.roundTimer = clearedTimer(d.roundDurationMs)
         }),
 
-      tbNextTeam: () =>
-        mutate((d) => {
-          const tb = d.tiebreaker
-          if (tb.teamIds.length === 0) return
-          const i = tb.teamIds.indexOf(tb.currentTeamId ?? '')
-          const nextId = tb.teamIds[(i + 1) % tb.teamIds.length]
-          tb.currentTeamId = nextId
-          tb.currentPlayerId = d.teams.find((t) => t.id === nextId)?.players[0]?.id ?? null
-          d.timer = clearedTimer(d)
-        }),
-
-      tbReset: () =>
-        mutate((d) => {
-          d.tiebreaker.revealed = []
-          d.tiebreaker.winnerTeamId = null
-          d.tiebreaker.currentTeamId = d.tiebreaker.teamIds[0] ?? null
-          d.timer = clearedTimer(d)
-        }),
-
-      endTiebreaker: () =>
-        mutate((d) => {
-          d.tiebreaker.active = false
-          d.phase = 'game-over'
-          d.showScores = true
-          d.timer = clearedTimer(d)
-        }),
-
-      hydrate: (state) => set({ ...state, actions: get().actions }),
+      hydrate: (state) => set({ ...migrateState(state), actions: get().actions }),
     },
   }
 })
 
 export const useActions = () => useGame((s) => s.actions)
-
-export const ROTATIONS_ALLOWED = ROTATION_LIMIT

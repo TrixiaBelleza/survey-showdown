@@ -1,5 +1,5 @@
 import type { Answer, GameState, Question, Round, Team } from '../types'
-import { TIMER_MS } from '../types'
+import { ROUND_DURATION_MS, TIMER_MS } from '../types'
 
 function answers(list: string[]): Answer[] {
   return list.map((text, i) => ({ id: `a${i + 1}`, text, rank: i + 1 }))
@@ -37,17 +37,17 @@ export const SAMPLE_QUESTIONS: Question[] = [
     "Let's discuss this offline",
     "I'll get back to you on this",
   ]),
-  question('q_excuse', "Name an excuse people use when they don't want to go out.", 'Everyday comedy', [
-    'Not feeling well',
-    'Already have plans',
-    'Bad weather',
-    'I have work',
-    'Just saw this message',
-    'Too far',
-    'No money',
-    'Tired',
-    'Something to do at home',
-    'Car broken',
+  question('q_excuse', 'Signs that Christmas is coming', 'Christmas', [
+    'Christmas Decors',
+    'Christmas songs are being played everywhere',
+    'Christmas sale in malls',
+    'People buying gifts',
+    '13th month pay',
+    '"Ber" months',
+    'People going to church at night "Simbang Gabi"',
+    'Cold season',
+    'Year-end company parties',
+    'Family or friendship reunions',
   ]),
   question('q_present', "Name something you don't want to happen while you're presenting in a meeting.", 'Meetings', [
     'Someone asks a question you cannot answer',
@@ -73,7 +73,7 @@ export const SAMPLE_QUESTIONS: Question[] = [
     'Get some fresh air',
     'Check phone',
   ]),
-  question('q_night', 'Name a job that requires working in the middle of the night.', 'Tiebreaker', [
+  question('q_night', 'Name a job that requires working in the middle of the night.', 'Spare', [
     'Doctor / nurse',
     'Security guard',
     'Call center / support',
@@ -99,6 +99,58 @@ export const SAMPLE_QUESTIONS: Question[] = [
   ]),
 ]
 
+/** Demo-only questions — never mixed into the real game bank. */
+export const TRIAL_QUESTIONS: Question[] = [
+  question('q_trial_coffee', "What's the first thing you do when someone sends you 'We need to talk'?", 'Trial', [
+    'Panic / get nervous',
+    'Reply, “Why?” / “About what?”',
+    'Think about what you did wrong 😂',
+    'Read the message again',
+    'Check who sent it',
+    'Leave them on seen / don’t reply yet',
+    'Call them immediately',
+    'Backread your conversation',
+    'Ask a friend what to do',
+    'Pray 🙏😂',
+  ]),
+  question('q_trial_fridge', 'What do you do when a cockroach starts flying? 😂', 'Trial', [
+    'Scream',
+    'Run away',
+    'Grab a slipper',
+    'Call someone for help',
+    'Climb onto a chair/table',
+    'Freeze in place',
+    'Cover your head/face',
+    'Spray insecticide',
+    'Close the door and abandon the room 😭',
+    'Try to trap it under a container',
+  ]),
+  question('q_trial_food', "What do parents/grandparents say when kids don't finish their food?", 'Trial', [
+    '“There are starving children who would love that food!”',
+    '“Don’t waste food!”',
+    '“Finish everything on your plate.”',
+    '“You won’t grow big and strong!”',
+    '“No dessert until you finish.”',
+    '“When I was your age, we ate whatever was served.” 😂',
+    '“Think of the money we spent on that!”',
+    '“Just one more bite.”',
+    '“Fine, you’ll eat that again later.” 😭',
+    '“You’re not leaving the table until you’re done.”',
+  ]),
+  question('q_trial_line', 'Name a place where you usually have to wait in line.', 'Trial', [
+    'Bank',
+    'Airport',
+    'Hospital / Clinic',
+    'Grocery Store / Supermarket',
+    'Fast-Food Restaurant',
+    'Government Office',
+    'Theme Park',
+    'Movie Theater',
+    'Public Restroom',
+    'Bus / Train Station',
+  ]),
+]
+
 export const SAMPLE_TEAMS: Team[] = [
   team('t_red', 'Red', '#ef4444', ['Anna', 'Ben', 'Carla', 'David', 'Emma', 'James', 'Lisa', 'Mark', 'Sarah', 'Tom'], 'q_phrase'),
   team('t_blue', 'Blue', '#3b82f6', ['Alex', 'Bianca', 'Chris', 'Dana', 'Eli', 'Faith', 'Gabe', 'Hana', 'Ivan', 'Jill'], 'q_excuse'),
@@ -109,12 +161,19 @@ export const SAMPLE_TEAMS: Team[] = [
 export function emptyRound(): Round {
   return {
     revealed: [],
+    revealElapsedMs: [],
+    lastRevealElapsedMs: null,
+    turnStartedAt: null,
     rotation: 1,
     currentPlayerId: null,
     guesses: 0,
     started: false,
     ended: false,
   }
+}
+
+export function emptyTimer(durationMs: number) {
+  return { durationMs, endsAt: null as number | null, pausedMs: null as number | null, visible: false }
 }
 
 export function createSampleState(): GameState {
@@ -129,7 +188,9 @@ export function createSampleState(): GameState {
     scoreOverrides: {},
     phase: 'lobby',
     activeTeamId: null,
-    timer: { durationMs: TIMER_MS, endsAt: null, pausedMs: null, visible: false },
+    timer: emptyTimer(TIMER_MS),
+    roundTimer: emptyTimer(ROUND_DURATION_MS),
+    roundDurationMs: ROUND_DURATION_MS,
     tiebreaker: {
       active: false,
       questionId: 'q_night',
@@ -140,6 +201,10 @@ export function createSampleState(): GameState {
       winnerTeamId: null,
     },
     showScores: false,
+    showRosters: false,
+    showResultsBoard: false,
     soundOn: true,
+    trialMode: false,
+    trialSnapshot: null,
   }
 }

@@ -21,7 +21,6 @@ const PHASE_LABEL: Record<string, string> = {
   lobby: 'Lobby',
   'team-turn': 'Turn in progress',
   'team-summary': 'Round complete',
-  tiebreaker: 'Tiebreaker',
   'game-over': 'Game over',
 }
 
@@ -35,9 +34,8 @@ export function Host() {
   const round = roundOf(state, state.activeTeamId)
 
   const inTurn = state.phase === 'team-turn'
-  const inTiebreaker = state.phase === 'tiebreaker' && state.tiebreaker.active
-  const revealedCount = inTiebreaker ? state.tiebreaker.revealed.length : round.revealed.length
-  const revealContext = inTiebreaker ? `tb:${state.tiebreaker.questionId}` : `team:${state.activeTeamId}`
+  const revealedCount = round.revealed.length
+  const revealContext = `team:${state.activeTeamId}`
 
   useEffect(() => setSoundEnabled(state.soundOn), [state.soundOn])
 
@@ -65,29 +63,25 @@ export function Host() {
   }, [revealContext, revealedCount])
 
   useEffect(() => {
-    const endsAt = state.timer.endsAt
+    const endsAt = state.roundTimer.endsAt
     if (!endsAt) return
     const remaining = endsAt - Date.now()
     if (remaining <= 0) return
 
-    play('start')
-    const tick = window.setInterval(() => {
-      if (Date.now() < endsAt) play('tick')
-    }, 1000)
-    const buzzer = window.setTimeout(() => {
-      window.clearInterval(tick)
-      play('time')
-    }, remaining)
+    // Silent until the final 10 seconds — then one warning cue, then buzzer at zero
+    let warning = 0
+    if (remaining > 10_000) {
+      warning = window.setTimeout(() => play('warning'), remaining - 10_000)
+    } else {
+      play('warning')
+    }
+    const buzzer = window.setTimeout(() => play('time'), remaining)
 
     return () => {
-      window.clearInterval(tick)
+      if (warning) window.clearTimeout(warning)
       window.clearTimeout(buzzer)
     }
-  }, [state.timer.endsAt])
-
-  useEffect(() => {
-    if (state.tiebreaker.winnerTeamId) play('win')
-  }, [state.tiebreaker.winnerTeamId])
+  }, [state.roundTimer.endsAt])
 
   const requestResetBoard = useCallback(
     (teamId: string, teamName: string) =>
@@ -129,7 +123,7 @@ export function Host() {
     () =>
       setConfirmation({
         title: 'Reset game progress?',
-        message: 'Revealed answers, scores, rotations, and the tiebreaker are cleared. Teams, players, and questions stay.',
+        message: 'Revealed answers, scores, rotations, and last-word times are cleared. Teams, players, and questions stay.',
         confirmLabel: 'Reset progress',
         danger: true,
         run: actions.resetGameProgress,
@@ -153,7 +147,7 @@ export function Host() {
     () =>
       setConfirmation({
         title: 'End the game?',
-        message: 'Monitor 1 switches to the final standings. You can return to the lobby afterwards.',
+        message: 'Monitor 1 switches to the results board (words + last-word times). You can return to the lobby afterwards.',
         confirmLabel: 'End game',
         run: actions.endGame,
       }),
@@ -168,9 +162,7 @@ export function Host() {
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el?.isContentEditable) return
       if (e.metaKey || e.ctrlKey || e.altKey) return
 
-      const answers = inTiebreaker
-        ? state.questions.find((q) => q.id === state.tiebreaker.questionId)?.answers ?? []
-        : question?.answers ?? []
+      const answers = question?.answers ?? []
 
       if (e.code === 'Space') {
         e.preventDefault()
@@ -184,8 +176,7 @@ export function Host() {
         const answer = answers[index]
         if (!answer) return
         e.preventDefault()
-        if (inTiebreaker) actions.tbToggleReveal(answer.id)
-        else if (inTurn) actions.toggleReveal(answer.id)
+        if (inTurn) actions.toggleReveal(answer.id)
         return
       }
 
@@ -194,9 +185,6 @@ export function Host() {
           if (inTurn) {
             e.preventDefault()
             actions.nextPlayer()
-          } else if (inTiebreaker) {
-            e.preventDefault()
-            actions.tbNextTeam()
           }
           break
         case 'u':
@@ -209,7 +197,7 @@ export function Host() {
           if (inTurn) actions.endTeamTurn()
           break
         case 's':
-          actions.setShowScores(!state.showScores)
+          actions.setShowResultsBoard(!state.showResultsBoard)
           break
         default:
           break
@@ -217,7 +205,7 @@ export function Host() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [actions, confirmation, inTiebreaker, inTurn, question, state.questions, state.showScores, state.tiebreaker.questionId, state.timer.endsAt])
+  }, [actions, confirmation, inTurn, question, state.showResultsBoard, state.timer.endsAt])
 
   return (
     <div className="host">
@@ -235,6 +223,38 @@ export function Host() {
           </span>
         )}
         <span className="host-top-spacer" />
+        {state.trialMode ? (
+          <button className="btn sm danger" onClick={actions.exitTrialMode}>
+            Exit Trial Mode
+          </button>
+        ) : (
+          <button
+            className="btn sm"
+            onClick={actions.enterTrialMode}
+            disabled={state.teams.length === 0}
+            title={
+              state.teams.length === 0
+                ? 'Add at least one team in Setup first'
+                : 'Practice with your Setup teams and funny trial questions'
+            }
+          >
+            Trial Mode
+          </button>
+        )}
+        <button
+          className={`btn sm ${state.showRosters ? 'primary' : ''}`}
+          onClick={() => actions.setShowRosters(!state.showRosters)}
+          title="Put every team's player list on Monitor 1"
+        >
+          {state.showRosters ? 'Hide Rosters' : 'Show Rosters'}
+        </button>
+        <button
+          className={`btn sm ${state.showResultsBoard ? 'primary' : ''}`}
+          onClick={() => actions.setShowResultsBoard(!state.showResultsBoard)}
+          title="Words + last-word elapsed time on Monitor 1"
+        >
+          {state.showResultsBoard ? 'Hide Results' : 'Show Results'}
+        </button>
         <button className={`btn sm ${state.showScores ? 'primary' : ''}`} onClick={() => actions.setShowScores(!state.showScores)}>
           {state.showScores ? 'Hide Scores' : 'Show Scores'}
         </button>

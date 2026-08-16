@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { ConfirmModal } from '../ConfirmModal'
 import { parseParticipantNames } from '../../lib/generateTeams'
 import { teamVars } from '../../lib/css'
 import { useGame } from '../../store/gameStore'
-import { isScoreManual, roundOf, teamScore, tiedLeaderIds } from '../../store/selectors'
+import { formatElapsed, isScoreManual, resultsRows, roundOf, teamScore, tiedLeaderIds } from '../../store/selectors'
 import { ANSWERS_PER_QUESTION, TEAM_COLORS } from '../../types'
 
-type Tab = 'scores' | 'questions' | 'tiebreaker' | 'setup'
+type Tab = 'scores' | 'questions' | 'setup'
 
 type Props = {
   onRequestResetGame: () => void
@@ -27,7 +27,6 @@ export function RightRail({ onRequestResetGame, onRequestResetAll, onRequestRemo
           [
             ['scores', 'Scoreboard'],
             ['questions', 'Questions'],
-            ['tiebreaker', 'Tiebreak'],
             ['setup', 'Setup'],
           ] as [Tab, string][]
         ).map(([id, label]) => (
@@ -37,14 +36,19 @@ export function RightRail({ onRequestResetGame, onRequestResetAll, onRequestRemo
         ))}
       </div>
       <div className="panel-body scroll">
-        {tab === 'scores' && <ScoresTab tied={tied} onGoTiebreaker={() => setTab('tiebreaker')} />}
+        {tab === 'scores' && <ScoresTab tied={tied} />}
         {tab === 'questions' && <QuestionsTab onRequestRemoveQuestion={onRequestRemoveQuestion} />}
-        {tab === 'tiebreaker' && <TiebreakerTab tied={tied} />}
         {tab === 'setup' && <SetupTab onRequestResetGame={onRequestResetGame} onRequestResetAll={onRequestResetAll} />}
         {tab === 'scores' && (
           <>
             <div className="divider" />
             <div className="btn-grid">
+              <button
+                className={`btn sm ${state.showResultsBoard ? 'primary' : ''}`}
+                onClick={() => actions.setShowResultsBoard(!state.showResultsBoard)}
+              >
+                {state.showResultsBoard ? 'Hide Results' : 'Show Results'}
+              </button>
               <button className={`btn sm ${state.showScores ? 'primary' : ''}`} onClick={() => actions.setShowScores(!state.showScores)}>
                 {state.showScores ? 'Hide Scores' : 'Show Scores'}
               </button>
@@ -59,9 +63,10 @@ export function RightRail({ onRequestResetGame, onRequestResetAll, onRequestRemo
   )
 }
 
-function ScoresTab({ tied, onGoTiebreaker }: { tied: string[]; onGoTiebreaker: () => void }) {
+function ScoresTab({ tied }: { tied: string[] }) {
   const state = useGame()
   const actions = state.actions
+  const rows = resultsRows(state)
 
   return (
     <>
@@ -77,6 +82,12 @@ function ScoresTab({ tied, onGoTiebreaker }: { tied: string[]; onGoTiebreaker: (
                 {t.name}
                 {manual && <span className="manual-flag"> · manual</span>}
                 {!manual && round.ended && <span className="manual-flag" style={{ color: 'var(--text-faint)' }}> · final</span>}
+                {round.lastRevealElapsedMs != null && (
+                  <span className="manual-flag" style={{ color: 'var(--text-faint)' }}>
+                    {' '}
+                    · last @ {formatElapsed(round.lastRevealElapsedMs)}
+                  </span>
+                )}
               </span>
               <input
                 className="field"
@@ -88,6 +99,9 @@ function ScoresTab({ tied, onGoTiebreaker }: { tied: string[]; onGoTiebreaker: (
               <span style={{ display: 'flex', gap: 4 }}>
                 <button className="btn icon" onClick={() => actions.bumpScore(t.id, 1)}>
                   +1
+                </button>
+                <button className="btn icon" title="Bonus +5" onClick={() => actions.bumpScore(t.id, 5)}>
+                  +5
                 </button>
                 <button className="btn icon" onClick={() => actions.bumpScore(t.id, -1)}>
                   −1
@@ -102,18 +116,34 @@ function ScoresTab({ tied, onGoTiebreaker }: { tied: string[]; onGoTiebreaker: (
       </div>
       {state.teams.length === 0 && <p className="hint">Add teams to see scores.</p>}
       <p className="hint">
-        Scores auto-count revealed answers. Editing a value pins it as a manual score (⟲ returns to auto).
+        Scores default to answers revealed. Type any number, or use +1 / +5 / −1 for bonus adjustments. ⟲ returns to the
+        automatic count. Last-word times come from card flips only (not from manual score edits).
       </p>
       {tied.length > 1 && (
         <div className="alert">
           <span>
-            Tie at the top: {tied.map((id) => state.teams.find((t) => t.id === id)?.name).join(', ')}
+            Tie on words: {tied.map((id) => state.teams.find((t) => t.id === id)?.name).join(', ')}. Faster last-word
+            time wins — use Show Results.
           </span>
-          <button className="btn sm primary" onClick={onGoTiebreaker}>
-            Tiebreaker
-          </button>
         </div>
       )}
+
+      <div className="divider" />
+      <span className="section-label">Results preview</span>
+      <div className="score-table">
+        {rows.map((r) => (
+          <div key={r.team.id} className={`score-row${r.rank === 1 ? ' active' : ''}`} style={teamVars(r.team.color)}>
+            <span className="team-dot" />
+            <span className="nm">
+              {r.rank}. {r.team.name}
+            </span>
+            <span className="team-chip">{r.words}</span>
+            <span className="manual-flag" style={{ minWidth: 48, textAlign: 'right' }}>
+              {r.lastWordAt}
+            </span>
+          </div>
+        ))}
+      </div>
     </>
   )
 }
@@ -220,69 +250,6 @@ function QuestionsTab({ onRequestRemoveQuestion }: { onRequestRemoveQuestion: (i
   )
 }
 
-function TiebreakerTab({ tied }: { tied: string[] }) {
-  const state = useGame()
-  const actions = state.actions
-  const tb = state.tiebreaker
-  const [picked, setPicked] = useState<string[]>(tied)
-
-  useEffect(() => {
-    if (!tb.active && tied.length > 1) setPicked(tied)
-  }, [tied.join('|'), tb.active])
-
-  const toggle = (id: string) => setPicked((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]))
-
-  return (
-    <>
-      <span className="section-label">Tiebreaker Question</span>
-      <select className="field" value={tb.questionId ?? ''} onChange={(e) => actions.setTiebreakerQuestion(e.target.value)}>
-        <option value="">— pick a question —</option>
-        {state.questions.map((q) => (
-          <option key={q.id} value={q.id}>
-            {q.text.slice(0, 46)}
-          </option>
-        ))}
-      </select>
-      <p className="hint">The ★ #1 ranked answer wins the tiebreaker. Reorder answers in the Questions tab to set rank.</p>
-
-      <div className="divider" />
-      <span className="section-label">Participating Teams</span>
-      {state.teams.map((t) => (
-        <label key={t.id} className={`tb-team-row${picked.includes(t.id) ? ' on' : ''}`} style={teamVars(t.color)}>
-          <input type="checkbox" checked={picked.includes(t.id)} onChange={() => toggle(t.id)} />
-          <span className="team-dot" />
-          <span style={{ flex: 1 }}>{t.name}</span>
-          <span className="team-chip">{teamScore(state, t.id)}</span>
-        </label>
-      ))}
-
-      <div className="divider" />
-      {tb.active ? (
-        <div className="stack">
-          <div className="alert">
-            <span>Tiebreaker running{tb.winnerTeamId ? ` — winner: ${state.teams.find((t) => t.id === tb.winnerTeamId)?.name}` : ''}</span>
-          </div>
-          <button className="btn ghost" onClick={actions.tbReset}>
-            Reset Tiebreaker Board
-          </button>
-          <button className="btn danger" onClick={actions.endTiebreaker}>
-            End Tiebreaker
-          </button>
-        </div>
-      ) : (
-        <button
-          className="btn xl primary block"
-          disabled={picked.length < 2 || !tb.questionId}
-          onClick={() => tb.questionId && actions.startTiebreaker(picked, tb.questionId)}
-        >
-          Start Tiebreaker
-        </button>
-      )}
-      {picked.length < 2 && <p className="hint">Select at least two teams.</p>}
-    </>
-  )
-}
-
 function SetupTab({ onRequestResetGame, onRequestResetAll }: { onRequestResetGame: () => void; onRequestResetAll: () => void }) {
   const state = useGame()
   const actions = state.actions
@@ -330,6 +297,41 @@ function SetupTab({ onRequestResetGame, onRequestResetAll }: { onRequestResetGam
       <input className="field" value={state.gameName} onChange={(e) => actions.setGameName(e.target.value)} />
 
       <div className="divider" />
+      <span className="section-label">Team Round Timer</span>
+      <p className="hint">
+        Each team gets this long to reveal answers. Shown on the Game Display. Default 2:30. A warning sound plays at
+        10 seconds remaining (no ticking before that).
+      </p>
+      <div className="mini-row">
+        <span className="mini-label">Minutes</span>
+        <input
+          className="field"
+          type="number"
+          min={0}
+          max={29}
+          value={Math.floor(state.roundDurationMs / 60_000)}
+          onChange={(e) => {
+            const mins = Math.max(0, Number(e.target.value) || 0)
+            const secs = Math.floor((state.roundDurationMs % 60_000) / 1000)
+            actions.setRoundDurationMs(mins * 60_000 + secs * 1000)
+          }}
+        />
+        <span className="mini-label">Seconds</span>
+        <input
+          className="field"
+          type="number"
+          min={0}
+          max={59}
+          value={Math.floor((state.roundDurationMs % 60_000) / 1000)}
+          onChange={(e) => {
+            const secs = Math.max(0, Math.min(59, Number(e.target.value) || 0))
+            const mins = Math.floor(state.roundDurationMs / 60_000)
+            actions.setRoundDurationMs(mins * 60_000 + secs * 1000)
+          }}
+        />
+      </div>
+
+      <div className="divider" />
       <span className="section-label">Generate Teams</span>
       <p className="hint">
         Paste the full roster (one name per line, or comma-separated). Generate Teams shuffles everyone and splits them.
@@ -375,12 +377,40 @@ function SetupTab({ onRequestResetGame, onRequestResetAll }: { onRequestResetGam
       <span className="section-label">Presentation</span>
       <label className="check">
         <input type="checkbox" checked={state.soundOn} onChange={actions.toggleSound} />
-        Game sounds (card flip, countdown, buzzer)
+        Game sounds (card flip, 10s warning, buzzer)
       </label>
       <label className="check">
         <input type="checkbox" checked={state.showScores} onChange={(e) => actions.setShowScores(e.target.checked)} />
         Show the scoreboard on Monitor 1
       </label>
+      <label className="check">
+        <input type="checkbox" checked={state.showRosters} onChange={(e) => actions.setShowRosters(e.target.checked)} />
+        Show every team's roster on Monitor 1
+      </label>
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={state.showResultsBoard}
+          onChange={(e) => actions.setShowResultsBoard(e.target.checked)}
+        />
+        Show the speed results board on Monitor 1
+      </label>
+
+      <div className="divider" />
+      <span className="section-label">Trial Mode</span>
+      <p className="hint">
+        Practice with your current Setup teams and the funny trial questions. Real questions and scores are restored when you
+        exit. Add at least one team first.
+      </p>
+      {state.trialMode ? (
+        <button className="btn danger block" onClick={actions.exitTrialMode}>
+          Exit Trial Mode
+        </button>
+      ) : (
+        <button className="btn primary block" onClick={actions.enterTrialMode} disabled={state.teams.length === 0}>
+          Start Trial Mode
+        </button>
+      )}
 
       <div className="divider" />
       <span className="section-label">Keyboard Shortcuts</span>
