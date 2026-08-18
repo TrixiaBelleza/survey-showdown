@@ -602,7 +602,7 @@
 .dsp-results-head,
 .dsp-results-row {
   display: grid;
-  grid-template-columns: 1fr 14vh 18vh;
+  grid-template-columns: 1fr 18vh;
   align-items: center;
   gap: 1.2vw;
   padding: 1.4vh 2vw;
@@ -640,14 +640,10 @@
   letter-spacing: 0.03em;
 }
 
-.dsp-results-words,
-.dsp-results-time {
+.dsp-results-words {
   text-align: center;
   font-family: var(--font-display);
   font-size: 4vh;
-}
-
-.dsp-results-time {
   color: var(--gold);
 }
 
@@ -706,6 +702,98 @@
   letter-spacing: 0.2em;
   color: var(--text-dim);
   text-transform: uppercase;
+}
+
+/* ---------- steal round ---------- */
+
+.dsp-steal-head {
+  text-align: center;
+}
+
+.dsp-steal-head h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 8vh;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: linear-gradient(180deg, #fff8dc 0%, #ffd257 45%, #e79c0d 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.dsp-steal-head p {
+  margin: 0.6vh 0 0;
+  font-size: 2.4vh;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.dsp-steal-head p b {
+  color: #fff;
+}
+
+.dsp-steal-head p em {
+  font-style: normal;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.dsp-steal-grid {
+  flex: 1;
+  min-height: 0;
+  align-content: center;
+  margin: 0 auto;
+}
+
+.dsp-steal-card header {
+  justify-content: flex-start;
+  font-size: 2.8vh;
+}
+
+.dsp-steal-card li {
+  font-size: 2.3vh;
+}
+
+.dsp-steal-points {
+  margin-left: auto;
+  display: flex;
+  align-items: baseline;
+  gap: 0.3vw;
+  font-family: var(--font-display);
+  font-size: 3.4vh;
+  color: var(--gold);
+}
+
+.dsp-steal-points small {
+  font-family: var(--font-ui);
+  font-size: 1.4vh;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.dsp-steal-foot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8vw;
+  padding: 1vh 2vw;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--team-color) 50%, transparent);
+  background: color-mix(in srgb, var(--team-color) 14%, rgba(5, 6, 15, 0.7));
+  align-self: center;
+  font-size: 1.9vh;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+.dsp-steal-foot b {
+  color: #fff;
 }
 
 .dsp-banner {

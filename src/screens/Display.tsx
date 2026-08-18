@@ -13,7 +13,7 @@ export function Display() {
   const question = questionOfTeam(state, state.activeTeamId)
   const trialBanner = state.trialMode ? <div className="dsp-trial-banner">Trial Mode — practice only</div> : null
 
-  // ---------- speed results board (final standings + host toggle) ----------
+  // ---------- results board (final standings + host toggle) ----------
   if (state.showResultsBoard || state.phase === 'game-over') {
     const rows = resultsRows(state)
     const finished = state.phase === 'game-over'
@@ -34,7 +34,6 @@ export function Display() {
             <div className="dsp-results-head">
               <span>Team</span>
               <span>Words</span>
-              <span>Last word at</span>
             </div>
             {rows.map((r) => (
               <div
@@ -48,7 +47,6 @@ export function Display() {
                   {r.team.name}
                 </span>
                 <span className="dsp-results-words">{r.words}</span>
-                <span className="dsp-results-time">{r.lastWordAt}</span>
               </div>
             ))}
           </div>
@@ -59,7 +57,7 @@ export function Display() {
             </div>
           )}
           {finished && !winner && leaders.length > 1 && (
-            <div className="dsp-banner">Joint leaders — same words and last-word time</div>
+            <div className="dsp-banner">Joint leaders — same word count</div>
           )}
         </div>
       </div>
@@ -192,33 +190,60 @@ export function Display() {
     )
   }
 
-  // ---------- team summary ----------
+  // ---------- team summary / STEAL round ----------
   if (state.phase === 'team-summary' && activeTeam) {
     const score = teamScore(state, activeTeam.id)
     const total = question?.answers.length ?? 10
+    const stealTeams = state.teams.filter((t) => t.id !== activeTeam.id)
     return (
       <div className="display" style={teamVars(activeTeam.color)}>
+        {trialBanner}
         <div className="dsp-header">
           <span className="dsp-brand">{state.gameName}</span>
-          <span className="dsp-brand">Round Complete</span>
+          <span className="dsp-brand">Steal Round</span>
         </div>
-        <div className="dsp-center">
-          <div className="dsp-upnext" style={teamVars(activeTeam.color)}>
-            <small>Team</small>
-            <strong>{activeTeam.name}</strong>
-          </div>
-          <div className="dsp-score-value">
-            <b style={{ fontSize: '18vh' }}>{score}</b>
-            <span style={{ fontSize: '3vh' }}>/ {total} Answers Revealed</span>
-          </div>
+
+        <div className="dsp-steal-head">
+          <h1>Steal!</h1>
+          <p>
+            Everyone <em>except</em> <b>{activeTeam.name}</b> — <b>one card</b> only, worth <b>1 point</b>
+          </p>
         </div>
+
         {question && (
-          <div className="dsp-board" style={{ flex: '0 0 26vh' }}>
+          <div className="dsp-board" style={{ flex: '0 0 22vh' }}>
             {question.answers.map((a, i) => (
               <AnswerCard key={a.id} index={i + 1} text={a.text} revealed={round.revealed.includes(a.id)} />
             ))}
           </div>
         )}
+
+        <div className={`dsp-roster-grid dsp-steal-grid cols-${Math.min(stealTeams.length || 1, 4)}`}>
+          {stealTeams.map((t) => (
+            <div key={t.id} className="dsp-roster-card dsp-steal-card" style={teamVars(t.color)}>
+              <header>
+                <span className="dsp-team-dot" style={{ width: '2vh', height: '2vh' }} />
+                <span>{t.name}</span>
+                <span className="dsp-steal-points">
+                  {teamScore(state, t.id)}
+                  <small>pts</small>
+                </span>
+              </header>
+              <ul>
+                {t.players.map((p) => (
+                  <li key={p.id}>{p.name}</li>
+                ))}
+                {t.players.length === 0 && <li className="muted">No players yet</li>}
+              </ul>
+            </div>
+          ))}
+          {stealTeams.length === 0 && <div className="dsp-empty">No other teams to steal</div>}
+        </div>
+
+        <div className="dsp-steal-foot" style={teamVars(activeTeam.color)}>
+          <span className="dsp-team-dot" style={{ width: '1.8vh', height: '1.8vh' }} />
+          <b>{activeTeam.name}</b> just played — {score} / {total} revealed · not eligible to steal
+        </div>
       </div>
     )
   }

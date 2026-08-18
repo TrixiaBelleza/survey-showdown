@@ -47,6 +47,7 @@ export function migrateState(raw: Partial<GameState> & Pick<GameState, 'teams' |
     questions: raw.questions,
     rounds,
     scoreOverrides: raw.scoreOverrides ?? {},
+    scoreBonus: raw.scoreBonus ?? {},
     phase,
     activeTeamId: raw.activeTeamId ?? null,
     timer: raw.timer ?? emptyTimer(TIMER_MS),

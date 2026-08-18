@@ -32,11 +32,11 @@ export type Round = {
   revealed: string[]
   /** Subset of `revealed` that counts toward the team's score (excludes STEAL show-board flips) */
   scoredRevealed: string[]
-  /** Elapsed ms from turn start for each reveal, parallel to `revealed` */
+  /** @deprecated unused — kept for old localStorage saves */
   revealElapsedMs: number[]
-  /** Convenience: elapsed of last *scored* reveal, or null if none */
+  /** @deprecated unused — kept for old localStorage saves */
   lastRevealElapsedMs: number | null
-  /** Epoch ms when this team's turn clock started (for computing elapsed) */
+  /** @deprecated unused — kept for old localStorage saves */
   turnStartedAt: number | null
   rotation: number
   currentPlayerId: string | null
@@ -80,6 +80,7 @@ export type TrialSnapshot = {
   questions: Question[]
   rounds: Record<string, Round>
   scoreOverrides: Record<string, number | null>
+  scoreBonus: Record<string, number>
   phase: Phase
   activeTeamId: string | null
   tiebreaker: TiebreakerState
@@ -93,8 +94,10 @@ export type GameState = {
   teams: Team[]
   questions: Question[]
   rounds: Record<string, Round>
-  /** manual score override per team id; null/undefined = use revealed count */
+  /** pinned score per team id; null/undefined = use revealed count + bonus */
   scoreOverrides: Record<string, number | null>
+  /** additive adjustment per team id (STEAL / bonus); reveals keep counting on top of it */
+  scoreBonus: Record<string, number>
   phase: Phase
   activeTeamId: string | null
   /** optional 5-second per-player buzz (host pacing aid) */
@@ -109,10 +112,10 @@ export type GameState = {
   showScores: boolean
   /** show every team's roster on Monitor 1 */
   showRosters: boolean
-  /** show the speed results table on Monitor 1 */
+  /** show the results table on Monitor 1 */
   showResultsBoard: boolean
   /**
-   * When true, flipping a card adds to the team's score and last-word time.
+   * When true, flipping a card adds to the team's score.
    * Turn off for STEAL / show-remaining so cards appear without awarding points.
    */
   scoreOnReveal: boolean

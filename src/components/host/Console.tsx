@@ -74,9 +74,6 @@ export function Console({ onRequestResetBoard }: Props) {
                 <span />
                 <span className="nm">Team</span>
                 <span className="team-chip">Words</span>
-                <span className="manual-flag" style={{ minWidth: 64, textAlign: 'right' }}>
-                  Last word
-                </span>
               </div>
               {rows.map((r) => (
                 <div key={r.team.id} className={`score-row${r.rank === 1 ? ' active' : ''}`} style={teamVars(r.team.color)}>
@@ -85,9 +82,6 @@ export function Console({ onRequestResetBoard }: Props) {
                     {r.rank}. {r.team.name}
                   </span>
                   <span className="team-chip">{r.words}</span>
-                  <span className="manual-flag" style={{ minWidth: 64, textAlign: 'right' }}>
-                    {r.lastWordAt}
-                  </span>
                 </div>
               ))}
             </div>
@@ -125,7 +119,7 @@ export function Console({ onRequestResetBoard }: Props) {
           <div className="alert">
             <span>
               {hiddenLeft > 0
-                ? 'Turn over. For STEAL / show-remaining: turn OFF “Score on flip”, then flip leftover cards — audience sees them, this team does not earn points.'
+                ? `Turn over — Monitor 1 is showing the STEAL screen (other teams, their players, and their points). Keep “Score on flip” OFF, flip the one stolen card, then award +1 to the stealing team on the Scoreboard.`
                 : 'Board is fully revealed. Award STEAL points with Scoreboard +1 if needed, then next team.'}
             </span>
           </div>
@@ -349,7 +343,7 @@ export function Console({ onRequestResetBoard }: Props) {
             </>
           ) : (
             <>
-              <p>Every team has finished a turn. Show the results board (words + last-word time), or end the game.</p>
+              <p>Every team has finished a turn. Show the results board, or end the game.</p>
               <div className="btn-grid">
                 <button
                   className="btn xl primary"

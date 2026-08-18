@@ -94,6 +94,7 @@ function snapshotForTrial(state: GameState): TrialSnapshot {
       ]),
     ),
     scoreOverrides: { ...state.scoreOverrides },
+    scoreBonus: { ...state.scoreBonus },
     phase: state.phase,
     activeTeamId: state.activeTeamId,
     tiebreaker: {
@@ -149,6 +150,7 @@ export const useGame = create<Store>()((set, get) => {
           ]),
         ),
         scoreOverrides: { ...prev.scoreOverrides },
+        scoreBonus: { ...prev.scoreBonus },
         timer: { ...prev.timer },
         roundTimer: { ...prev.roundTimer },
         tiebreaker: { ...prev.tiebreaker, teamIds: [...prev.tiebreaker.teamIds], revealed: [...prev.tiebreaker.revealed] },
@@ -197,6 +199,7 @@ export const useGame = create<Store>()((set, get) => {
           d.teams = d.teams.filter((t) => t.id !== teamId)
           delete d.rounds[teamId]
           delete d.scoreOverrides[teamId]
+          delete d.scoreBonus[teamId]
           if (d.activeTeamId === teamId) {
             d.activeTeamId = null
             d.phase = 'lobby'
@@ -261,6 +264,7 @@ export const useGame = create<Store>()((set, get) => {
           d.teams = teams
           d.rounds = Object.fromEntries(teams.map((t) => [t.id, emptyRound()]))
           d.scoreOverrides = {}
+          d.scoreBonus = {}
           d.phase = 'lobby'
           d.activeTeamId = null
           d.showScores = false
@@ -458,6 +462,7 @@ export const useGame = create<Store>()((set, get) => {
         mutate((d) => {
           d.rounds[teamId] = emptyRound()
           delete d.scoreOverrides[teamId]
+          delete d.scoreBonus[teamId]
           d.timer = clearedTimer(TIMER_MS)
           d.roundTimer = clearedTimer(d.roundDurationMs)
           if (d.activeTeamId === teamId && d.phase === 'team-summary') d.phase = 'lobby'
@@ -512,6 +517,7 @@ export const useGame = create<Store>()((set, get) => {
         mutate((d) => {
           d.rounds = Object.fromEntries(d.teams.map((t) => [t.id, emptyRound()]))
           d.scoreOverrides = {}
+          d.scoreBonus = {}
           d.phase = 'lobby'
           d.activeTeamId = null
           d.showScores = false
@@ -534,16 +540,22 @@ export const useGame = create<Store>()((set, get) => {
 
       setScoreOverride: (teamId, value) =>
         mutate((d) => {
-          if (value === null || Number.isNaN(value)) delete d.scoreOverrides[teamId]
-          else d.scoreOverrides[teamId] = Math.max(0, Math.round(value))
+          if (value === null || Number.isNaN(value)) {
+            delete d.scoreOverrides[teamId]
+            delete d.scoreBonus[teamId]
+          } else d.scoreOverrides[teamId] = Math.max(0, Math.round(value))
         }),
 
       bumpScore: (teamId, delta) =>
         mutate((d) => {
+          const pinned = d.scoreOverrides[teamId]
+          if (typeof pinned === 'number') {
+            d.scoreOverrides[teamId] = Math.max(0, pinned + delta)
+            return
+          }
           const round = d.rounds[teamId]
-          const current =
-            d.scoreOverrides[teamId] ?? round?.scoredRevealed?.length ?? round?.revealed.length ?? 0
-          d.scoreOverrides[teamId] = Math.max(0, current + delta)
+          const auto = round?.scoredRevealed?.length ?? round?.revealed.length ?? 0
+          d.scoreBonus[teamId] = Math.max(-auto, (d.scoreBonus[teamId] ?? 0) + delta)
         }),
 
       setShowScores: (show) =>
@@ -644,6 +656,7 @@ export const useGame = create<Store>()((set, get) => {
           d.questions = trialQuestions
           d.rounds = Object.fromEntries(d.teams.map((t) => [t.id, emptyRound()]))
           d.scoreOverrides = {}
+          d.scoreBonus = {}
           d.phase = 'lobby'
           d.activeTeamId = d.teams[0]?.id ?? null
           d.showScores = false
@@ -677,6 +690,7 @@ export const useGame = create<Store>()((set, get) => {
           d.questions = snap.questions
           d.rounds = snap.rounds
           d.scoreOverrides = snap.scoreOverrides
+          d.scoreBonus = snap.scoreBonus ?? {}
           d.phase = snap.phase === 'team-turn' || snap.phase === 'tiebreaker' ? 'lobby' : snap.phase
           d.activeTeamId = snap.phase === 'team-turn' || snap.phase === 'tiebreaker' ? null : snap.activeTeamId
           d.tiebreaker = snap.tiebreaker

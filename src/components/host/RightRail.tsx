@@ -3,7 +3,14 @@ import { ConfirmModal } from '../ConfirmModal'
 import { parseParticipantNames } from '../../lib/generateTeams'
 import { teamVars } from '../../lib/css'
 import { useGame } from '../../store/gameStore'
-import { formatElapsed, isScoreManual, resultsRows, roundOf, teamScore, tiedLeaderIds } from '../../store/selectors'
+import {
+  isScoreManual,
+  resultsRows,
+  roundOf,
+  scoreBonusOf,
+  teamScore,
+  tiedLeaderIds,
+} from '../../store/selectors'
 import { ANSWERS_PER_QUESTION, TEAM_COLORS } from '../../types'
 
 type Tab = 'scores' | 'questions' | 'setup'
@@ -74,20 +81,21 @@ function ScoresTab({ tied }: { tied: string[] }) {
       <div className="score-table">
         {state.teams.map((t) => {
           const manual = isScoreManual(state, t.id)
+          const bonus = scoreBonusOf(state, t.id)
           const round = roundOf(state, t.id)
           return (
             <div key={t.id} className={`score-row${state.activeTeamId === t.id ? ' active' : ''}`} style={teamVars(t.color)}>
               <span className="team-dot" />
               <span className="nm">
                 {t.name}
-                {manual && <span className="manual-flag"> · manual</span>}
-                {!manual && round.ended && <span className="manual-flag" style={{ color: 'var(--text-faint)' }}> · final</span>}
-                {round.lastRevealElapsedMs != null && (
-                  <span className="manual-flag" style={{ color: 'var(--text-faint)' }}>
+                {manual && <span className="manual-flag"> · pinned</span>}
+                {!manual && bonus !== 0 && (
+                  <span className="manual-flag">
                     {' '}
-                    · last @ {formatElapsed(round.lastRevealElapsedMs)}
+                    · {bonus > 0 ? `+${bonus}` : bonus} bonus
                   </span>
                 )}
+                {!manual && round.ended && <span className="manual-flag" style={{ color: 'var(--text-faint)' }}> · final</span>}
               </span>
               <input
                 className="field"
@@ -116,14 +124,15 @@ function ScoresTab({ tied }: { tied: string[] }) {
       </div>
       {state.teams.length === 0 && <p className="hint">Add teams to see scores.</p>}
       <p className="hint">
-        Scores default to answers revealed. Type any number, or use +1 / +5 / −1 for bonus adjustments. ⟲ returns to the
-        automatic count. Last-word times come from card flips only (not from manual score edits).
+        Scores default to answers revealed. <b>+1 / +5 / −1 are bonuses that add on top of the live count</b> — card
+        flips keep scoring after you use them (e.g. a STEAL point). Typing a number instead <b>pins</b> the score and
+        stops the automatic count; ⟲ clears both.
       </p>
       {tied.length > 1 && (
         <div className="alert">
           <span>
-            Tie on words: {tied.map((id) => state.teams.find((t) => t.id === id)?.name).join(', ')}. Faster last-word
-            time wins — use Show Results.
+            Tie on words: {tied.map((id) => state.teams.find((t) => t.id === id)?.name).join(', ')}. Break it
+            yourself with Scoreboard +1 / −1, or celebrate a shared win.
           </span>
         </div>
       )}
@@ -138,9 +147,6 @@ function ScoresTab({ tied }: { tied: string[] }) {
               {r.rank}. {r.team.name}
             </span>
             <span className="team-chip">{r.words}</span>
-            <span className="manual-flag" style={{ minWidth: 48, textAlign: 'right' }}>
-              {r.lastWordAt}
-            </span>
           </div>
         ))}
       </div>
@@ -393,7 +399,7 @@ function SetupTab({ onRequestResetGame, onRequestResetAll }: { onRequestResetGam
           checked={state.showResultsBoard}
           onChange={(e) => actions.setShowResultsBoard(e.target.checked)}
         />
-        Show the speed results board on Monitor 1
+        Show the results board on Monitor 1
       </label>
 
       <div className="divider" />

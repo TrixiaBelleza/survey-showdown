@@ -124,7 +124,7 @@ export function Host() {
     () =>
       setConfirmation({
         title: 'Reset game progress?',
-        message: 'Revealed answers, scores, rotations, and last-word times are cleared. Teams, players, and questions stay.',
+        message: 'Revealed answers, scores, and rotations are cleared. Teams, players, and questions stay.',
         confirmLabel: 'Reset progress',
         danger: true,
         run: actions.resetGameProgress,
@@ -148,7 +148,7 @@ export function Host() {
     () =>
       setConfirmation({
         title: 'End the game?',
-        message: 'Monitor 1 switches to the results board (words + last-word times). You can return to the lobby afterwards.',
+        message: 'Monitor 1 switches to the results board (team word counts). You can return to the lobby afterwards.',
         confirmLabel: 'End game',
         run: actions.endGame,
       }),
@@ -263,7 +263,7 @@ export function Host() {
         <button
           className={`btn sm ${state.showResultsBoard ? 'primary' : ''}`}
           onClick={() => actions.setShowResultsBoard(!state.showResultsBoard)}
-          title="Words + last-word elapsed time on Monitor 1"
+          title="Team word counts on Monitor 1"
         >
           {state.showResultsBoard ? 'Hide Results' : 'Show Results'}
         </button>

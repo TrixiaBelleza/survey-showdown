@@ -118,8 +118,13 @@ Then open the preview URL Vite prints (often **http://localhost:4173/**).
 6. Click **Next Player** (or <kbd>Enter</kbd>). Repeat.
 7. The turn runs on the team round timer. End it yourself when time is up, or when all ten answers
    are revealed (the console prompts you). Click **End Team Turn** any time.
-8. **Next Team →**, and repeat. When every team has played, click **Show Results Board** (team /
-   words / last-word time), then **End Game**.
+8. After **End Team Turn**, Monitor 1 switches to the **STEAL screen**: the leftover board plus every
+   *other* team with its players and current points, so the room can see which team a stealer belongs
+   to. **Score on flip** turns OFF automatically, so the card you flip for the steal (or for showing
+   leftovers) does not add to the team that just played — award the steal with Scoreboard **+1** on the
+   stealing team and Monitor 1 updates live. STEAL itself is run manually; see `HOST_SCRIPT.md`.
+9. **Next Team →**, and repeat. When every team has played, click **Show Results Board** (team /
+   words), then **End Game**.
 
 ### Keyboard shortcuts (Host Control only)
 
@@ -143,12 +148,12 @@ Shortcuts are ignored while you're typing in a field.
   (informational only — there is no rotation cap).
 - A turn ends when the **team round timer** runs out or the host clicks **End Team Turn**. Revealing
   all ten answers also prompts the host to end.
-- **Score = number of answers revealed**, shown as "Answers Revealed" everywhere. The host can pin a
-  manual score (`+1` / `−1` / type a number) and press ⟲ to go back to the automatic count.
-- Each card flip records **elapsed time from turn start**. Only the **last** reveal’s time is kept for
-  ranking (undo / hide recalculates from remaining flips).
-- **Ties on word count** are broken by **faster last-word time** (lower elapsed wins). Use
-  **Show Results Board** after all teams finish — columns are Team, Words, Last word at.
+- **Score = number of answers revealed**, shown as "Answers Revealed" everywhere. Manual edits come in
+  two flavours: `+1` / `+5` / `−1` add a **bonus on top of the live count**, so card flips keep scoring
+  afterwards (that's what a STEAL point uses); typing a number **pins** the score and stops the
+  automatic count. ⟲ clears both and returns to the pure automatic count.
+- **Most words wins.** Ties share the top spot on the Results Board (Team + Words only) — break them
+  yourself with Scoreboard `+1` / `−1` if you want a single champion.
 - Spare questions in the bank (e.g. night-shift jobs) can be assigned if you generate more than four
   teams. There is no separate ★ #1 tiebreaker round.
 

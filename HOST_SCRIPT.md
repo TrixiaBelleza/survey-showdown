@@ -35,7 +35,7 @@ Default team clock: **2:30** (change in Setup if you want).
 - **Each team gets its own question and its own turn** — you play as a group, in order, against the clock.
 - **I am the judge.** You say answers out loud. There’s no AI matching. If I think it counts, I flip the card. If it’s close, I’ll decide — and if I mess up, I can undo.
 
-**Speed still matters.** We track when your team flips its last card. If two teams end with the same number of words, **the faster last word wins.**
+**Most words wins.** If two teams finish with the same number of words, we’ll call it a tie — or I’ll break it with a bonus point on the Scoreboard.
 
 **We’re going to do a short Trial Round first** — same mechanics as the real game, funny practice questions, so everyone sees how a turn works. Then we’ll reset and play for real.
 
@@ -98,8 +98,7 @@ Default team clock: **2:30** (change in Setup if you want).
 - **All ten answers are revealed**, or  
 - **I end the turn early** (for example if you’re stuck and we need to keep the show moving).
 
-**Your score for that round is the number of cards you flipped.**  
-**We also save the time of your last flip** — that’s the tiebreaker if needed later.
+**Your score for that round is the number of cards you flipped.**
 
 *[End Team Turn. Show summary briefly.]*
 
@@ -110,6 +109,10 @@ Default team clock: **2:30** (change in Setup if you want).
 *[Do this after End Team Turn when the board still has hidden answers. Not built into the app — you run it from Teams chat + scoreboard. Skip on Trial if you want a shorter demo; use it in the real game.]*
 
 **If time’s up and there are still answers left on the board, we open STEAL.**
+
+*[The moment you press **End Team Turn**, Monitor 1 switches to the STEAL screen: the leftover
+board, plus every **other** team with their player names and their current points — so when someone
+wins the steal, the room instantly sees which team they belong to.]*
 
 **How STEAL works:**
 
@@ -126,8 +129,8 @@ Default team clock: **2:30** (change in Setup if you want).
    - No extra spaces, no period at the end, no emoji, no typos  
 
 3. **First correct message wins the steal** — I shout their name. Everyone else stop typing.
-4. That person gets **one guess** at **any remaining hidden answer** (say it out loud).
-5. **If it’s on the board:** I flip the card and give **+1** to **their** team (Scoreboard → **+1** on that team — even if they weren’t the team that just played).
+4. That person gets **one guess** at **any remaining hidden answer** (say it out loud) — **one card only**.
+5. **If it’s on the board:** I flip that **one** card and give **+1** to **their** team (Scoreboard → **+1** on that team — even if they weren’t the team that just played). Their new total updates live on Monitor 1.
 6. **If it’s wrong:** no point, steal is over, we move on.
 
 **Only one steal attempt per turn** (one chat winner, one guess). Then **Next Team →**.
@@ -153,10 +156,14 @@ Default team clock: **2:30** (change in Setup if you want).
 - Keep Host Control’s answer list open so you can judge the steal guess quickly.
 - Reject near-misses in chat (`we will miss you raf`, `We will miss you Raf`, trailing period, etc.) — exact only, or the race isn’t fair.
 - If two messages land at once, the **earlier timestamp** in Teams wins.
-- Award the point with Scoreboard **+1** on the stealer’s team (manual override is fine).
-- After **End Team Turn**, **Score on flip** turns OFF automatically. Flip leftover cards for the
-  audience — they show on Monitor 1 but do **not** add to that team’s score. Turn it back ON before
-  the next team’s real play (Next Team does this for you).
+- Award the point with Scoreboard **+1** on the stealer’s team. That’s a **bonus** — it rides on top of
+  their reveal count, so if they haven’t played yet their own turn still scores normally on top of it.
+  (Typing a number in the score box instead *pins* the score and stops the automatic count.)
+- After **End Team Turn**, **Score on flip** turns OFF automatically. Flip the stolen card (or the
+  rest of the leftovers once STEAL is done) — they show on Monitor 1 but do **not** add to that
+  team’s score. Turn it back ON before the next team’s real play (Next Team does this for you).
+- Monitor 1’s STEAL screen lists only the **eligible** teams; the team that just played sits in the
+  strip at the bottom marked *not eligible*.
 - Optional: don’t run STEAL in Trial; save the hype for the real game.
 
 *[Show summary briefly. Next Team if you want a second demo team, or skip to wrap the trial.]*
@@ -175,10 +182,9 @@ Default team clock: **2:30** (change in Setup if you want).
 | --- | --- |
 | **Team** | Your team name |
 | **Words** | How many answers you revealed |
-| **Last word at** | How long into your turn your *last* correct flip happened |
 
 **Most words wins.**  
-**If two teams have the same number of words, the one with the faster last word — the smaller time — wins.**
+**If two teams have the same number of words, it’s a tie** — unless I award a bonus point to break it.
 
 *[You can click **Show Results Board** during trial so they see the table shape, then hide it.]*
 
@@ -200,7 +206,7 @@ Default team clock: **2:30** (change in Setup if you want).
 
 ## Spoken “rules in 30 seconds” (if someone joins late)
 
-**Mega Family Feud: each team gets one question and ten hidden answers. You take turns guessing out loud. I flip cards if you’re right. Score = number of flips. Beat the clock. If time’s up and cards remain, STEAL opens — first to type “We will miss you, Raf” exactly in Teams chat gets one guess for +1 to their team. Most words wins; if tied, fastest last flip wins. No face-off, no strikes.**
+**Mega Family Feud: each team gets one question and ten hidden answers. You take turns guessing out loud. I flip cards if you’re right. Score = number of flips. Beat the clock. If time’s up and cards remain, STEAL opens — first to type “We will miss you, Raf” exactly in Teams chat gets one guess for +1 to their team. Most words wins. No face-off, no strikes.**
 
 ---
 
@@ -256,9 +262,10 @@ Default team clock: **2:30** (change in Setup if you want).
 | Must have | Capital **W**, capital **R**af, comma after **you,** — nothing else |
 | Winner | First exact message (earlier timestamp if tied) |
 | Prize | **One** verbal guess at a remaining answer |
-| Correct | Flip card + **+1** to **that person’s team** (Scoreboard) |
+| Correct | Flip that **one** card + **+1** to **that person’s team** (Scoreboard) |
 | Wrong | No point; steal ends |
 | Cap | One steal per turn, then next team |
+| Monitor 1 | Auto STEAL screen: leftover board + **other teams** with players and live points |
 
 App note: STEAL is **manual** — flip the card yourself if you want it shown, and always award the point with Scoreboard **+1**.
 ---
@@ -279,7 +286,7 @@ Assigned in team order while Trial Mode is on:
 ## After the game
 
 **Huge thanks for playing Mega Family Feud!**  
-*[Show Results Board / End Game. Read top teams: words + last-word times.]*  
+*[Show Results Board / End Game. Read top teams by word count.]*  
 **Congrats to [winner]!** Everyone else — you survived the board, and that’s a win too.
 
 ---
