@@ -1,4 +1,4 @@
-# Survey Showdown
+# Mega Family Feud
 
 A host-only, two-screen web app for running a live survey game show (Family Feud + Gimme 5 style)
 over a Microsoft Teams call with 40–50 participants.

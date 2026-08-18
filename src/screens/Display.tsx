@@ -153,7 +153,7 @@ export function Display() {
         </div>
 
         <div className="dsp-question">
-          <small>Survey Question</small>
+          <small>Question</small>
           <p>{question.text}</p>
         </div>
 
@@ -229,7 +229,7 @@ export function Display() {
       {trialBanner}
       <div className="dsp-center">
         <h1 className="dsp-title">{state.gameName}</h1>
-        <div className="dsp-subtitle">Survey · Showdown · Live</div>
+        <div className="dsp-subtitle">Mega · Family · Feud</div>
         {activeTeam && (
           <div className="dsp-upnext" style={teamVars(activeTeam.color)}>
             <small>Up Next</small>

@@ -30,9 +30,11 @@ export type Question = {
 export type Round = {
   /** answer ids in the order they were revealed (last item = undo target) */
   revealed: string[]
+  /** Subset of `revealed` that counts toward the team's score (excludes STEAL show-board flips) */
+  scoredRevealed: string[]
   /** Elapsed ms from turn start for each reveal, parallel to `revealed` */
   revealElapsedMs: number[]
-  /** Convenience: elapsed of last reveal, or null if none */
+  /** Convenience: elapsed of last *scored* reveal, or null if none */
   lastRevealElapsedMs: number | null
   /** Epoch ms when this team's turn clock started (for computing elapsed) */
   turnStartedAt: number | null
@@ -109,6 +111,11 @@ export type GameState = {
   showRosters: boolean
   /** show the speed results table on Monitor 1 */
   showResultsBoard: boolean
+  /**
+   * When true, flipping a card adds to the team's score and last-word time.
+   * Turn off for STEAL / show-remaining so cards appear without awarding points.
+   */
+  scoreOnReveal: boolean
   soundOn: boolean
   trialMode: boolean
   trialSnapshot: TrialSnapshot | null

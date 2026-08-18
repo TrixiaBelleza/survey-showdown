@@ -19,7 +19,8 @@ export function questionOfTeam(state: GameState, teamId: string | null): Questio
 export function teamScore(state: GameState, teamId: string): number {
   const override = state.scoreOverrides[teamId]
   if (typeof override === 'number') return override
-  return roundOf(state, teamId).revealed.length
+  const round = roundOf(state, teamId)
+  return round.scoredRevealed?.length ?? round.revealed.length
 }
 
 export function isScoreManual(state: GameState, teamId: string): boolean {

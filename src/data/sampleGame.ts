@@ -161,6 +161,7 @@ export const SAMPLE_TEAMS: Team[] = [
 export function emptyRound(): Round {
   return {
     revealed: [],
+    scoredRevealed: [],
     revealElapsedMs: [],
     lastRevealElapsedMs: null,
     turnStartedAt: null,
@@ -181,7 +182,7 @@ export function createSampleState(): GameState {
   for (const t of SAMPLE_TEAMS) rounds[t.id] = emptyRound()
 
   return {
-    gameName: 'Survey Showdown',
+    gameName: 'Mega Family Feud',
     teams: SAMPLE_TEAMS.map((t) => ({ ...t, players: t.players.map((p) => ({ ...p })) })),
     questions: SAMPLE_QUESTIONS.map((q) => ({ ...q, answers: q.answers.map((a) => ({ ...a })) })),
     rounds,
@@ -203,6 +204,7 @@ export function createSampleState(): GameState {
     showScores: false,
     showRosters: false,
     showResultsBoard: false,
+    scoreOnReveal: true,
     soundOn: true,
     trialMode: false,
     trialSnapshot: null,

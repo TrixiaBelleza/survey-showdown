@@ -8,8 +8,10 @@ function migrateRound(raw: Partial<Round> | undefined): Round {
   // Keep arrays aligned if an old save has fewer elapsed entries than reveals.
   while (revealElapsedMs.length < revealed.length) revealElapsedMs.push(0)
   const trimmed = revealElapsedMs.slice(0, revealed.length)
+  const scoredRevealed = raw?.scoredRevealed ? [...raw.scoredRevealed] : [...revealed]
   return {
     revealed: [...revealed],
+    scoredRevealed,
     revealElapsedMs: trimmed,
     lastRevealElapsedMs:
       typeof raw?.lastRevealElapsedMs === 'number'
@@ -39,7 +41,8 @@ export function migrateState(raw: Partial<GameState> & Pick<GameState, 'teams' |
   if (phase === 'tiebreaker') phase = 'lobby'
 
   return {
-    gameName: raw.gameName ?? 'Survey Showdown',
+    gameName:
+      !raw.gameName || raw.gameName === 'Survey Showdown' ? 'Mega Family Feud' : raw.gameName,
     teams: raw.teams,
     questions: raw.questions,
     rounds,
@@ -61,6 +64,7 @@ export function migrateState(raw: Partial<GameState> & Pick<GameState, 'teams' |
     showScores: raw.showScores ?? false,
     showRosters: raw.showRosters ?? false,
     showResultsBoard: raw.showResultsBoard ?? false,
+    scoreOnReveal: raw.scoreOnReveal ?? true,
     soundOn: raw.soundOn ?? true,
     trialMode: raw.trialMode ?? false,
     trialSnapshot: raw.trialSnapshot ?? null,

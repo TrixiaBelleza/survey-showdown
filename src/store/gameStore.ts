@@ -49,6 +49,7 @@ export type Actions = {
   setShowScores: (show: boolean) => void
   setShowRosters: (show: boolean) => void
   setShowResultsBoard: (show: boolean) => void
+  setScoreOnReveal: (on: boolean) => void
   toggleSound: () => void
 
   startTimer: () => void
@@ -84,7 +85,12 @@ function snapshotForTrial(state: GameState): TrialSnapshot {
     rounds: Object.fromEntries(
       Object.entries(state.rounds).map(([k, v]) => [
         k,
-        { ...v, revealed: [...v.revealed], revealElapsedMs: [...(v.revealElapsedMs ?? [])] },
+        {
+          ...v,
+          revealed: [...v.revealed],
+          scoredRevealed: [...(v.scoredRevealed ?? [])],
+          revealElapsedMs: [...(v.revealElapsedMs ?? [])],
+        },
       ]),
     ),
     scoreOverrides: { ...state.scoreOverrides },
@@ -109,9 +115,19 @@ function elapsedNow(round: { turnStartedAt: number | null }, roundTimer: GameSta
   return 0
 }
 
-function syncLastReveal(round: { revealElapsedMs: number[]; lastRevealElapsedMs: number | null }) {
-  round.lastRevealElapsedMs =
-    round.revealElapsedMs.length > 0 ? round.revealElapsedMs[round.revealElapsedMs.length - 1]! : null
+function syncLastScoredReveal(round: {
+  revealed: string[]
+  scoredRevealed: string[]
+  revealElapsedMs: number[]
+  lastRevealElapsedMs: number | null
+}) {
+  for (let i = round.revealed.length - 1; i >= 0; i--) {
+    if (round.scoredRevealed.includes(round.revealed[i]!)) {
+      round.lastRevealElapsedMs = round.revealElapsedMs[i] ?? null
+      return
+    }
+  }
+  round.lastRevealElapsedMs = null
 }
 
 export const useGame = create<Store>()((set, get) => {
@@ -124,7 +140,12 @@ export const useGame = create<Store>()((set, get) => {
         rounds: Object.fromEntries(
           Object.entries(prev.rounds).map(([k, v]) => [
             k,
-            { ...v, revealed: [...v.revealed], revealElapsedMs: [...(v.revealElapsedMs ?? [])] },
+            {
+              ...v,
+              revealed: [...v.revealed],
+              scoredRevealed: [...(v.scoredRevealed ?? [])],
+              revealElapsedMs: [...(v.revealElapsedMs ?? [])],
+            },
           ]),
         ),
         scoreOverrides: { ...prev.scoreOverrides },
@@ -350,12 +371,15 @@ export const useGame = create<Store>()((set, get) => {
           // after a reset, arrays are already empty. Don't invent timestamps for leftover reveals.
           if (round.revealed.length === 0) {
             round.revealElapsedMs = []
+            round.scoredRevealed = []
             round.lastRevealElapsedMs = null
           } else if ((round.revealElapsedMs?.length ?? 0) !== round.revealed.length) {
             round.revealElapsedMs = []
             round.lastRevealElapsedMs = null
           }
+          if (!round.scoredRevealed) round.scoredRevealed = []
           if (!round.currentPlayerId) round.currentPlayerId = t.players[0]?.id ?? null
+          d.scoreOnReveal = true
         }),
 
       selectPlayer: (playerId) =>
@@ -400,17 +424,22 @@ export const useGame = create<Store>()((set, get) => {
           if (!d.activeTeamId) return
           const round = ensureRound(d, d.activeTeamId)
           if (!round.revealElapsedMs) round.revealElapsedMs = []
+          if (!round.scoredRevealed) round.scoredRevealed = []
           const idx = round.revealed.indexOf(answerId)
           if (idx >= 0) {
             round.revealed = round.revealed.filter((id) => id !== answerId)
             round.revealElapsedMs = round.revealElapsedMs.filter((_, i) => i !== idx)
-            syncLastReveal(round)
+            round.scoredRevealed = round.scoredRevealed.filter((id) => id !== answerId)
+            syncLastScoredReveal(round)
           } else {
             const elapsed = elapsedNow(round, d.roundTimer, d.roundDurationMs)
             if (!round.turnStartedAt) round.turnStartedAt = Date.now() - elapsed
             round.revealed = [...round.revealed, answerId]
             round.revealElapsedMs = [...round.revealElapsedMs, elapsed]
-            syncLastReveal(round)
+            if (d.scoreOnReveal) {
+              round.scoredRevealed = [...round.scoredRevealed, answerId]
+              syncLastScoredReveal(round)
+            }
           }
         }),
 
@@ -418,9 +447,11 @@ export const useGame = create<Store>()((set, get) => {
         mutate((d) => {
           if (!d.activeTeamId) return
           const round = ensureRound(d, d.activeTeamId)
+          const removed = round.revealed[round.revealed.length - 1]
           round.revealed = round.revealed.slice(0, -1)
           round.revealElapsedMs = (round.revealElapsedMs ?? []).slice(0, -1)
-          syncLastReveal(round)
+          if (removed) round.scoredRevealed = (round.scoredRevealed ?? []).filter((id) => id !== removed)
+          syncLastScoredReveal(round)
         }),
 
       resetBoard: (teamId) =>
@@ -439,6 +470,8 @@ export const useGame = create<Store>()((set, get) => {
           round.ended = true
           round.started = true
           d.phase = 'team-summary'
+          // Ready for STEAL / show-remaining — flips won't score until turned back on.
+          d.scoreOnReveal = false
           d.timer = clearedTimer(TIMER_MS)
           d.roundTimer = clearedTimer(d.roundDurationMs)
         }),
@@ -452,6 +485,7 @@ export const useGame = create<Store>()((set, get) => {
           d.phase = 'lobby'
           d.showScores = false
           d.showResultsBoard = false
+          d.scoreOnReveal = true
           d.timer = clearedTimer(TIMER_MS)
           d.roundTimer = clearedTimer(d.roundDurationMs)
         }),
@@ -506,7 +540,9 @@ export const useGame = create<Store>()((set, get) => {
 
       bumpScore: (teamId, delta) =>
         mutate((d) => {
-          const current = d.scoreOverrides[teamId] ?? d.rounds[teamId]?.revealed.length ?? 0
+          const round = d.rounds[teamId]
+          const current =
+            d.scoreOverrides[teamId] ?? round?.scoredRevealed?.length ?? round?.revealed.length ?? 0
           d.scoreOverrides[teamId] = Math.max(0, current + delta)
         }),
 
@@ -536,6 +572,8 @@ export const useGame = create<Store>()((set, get) => {
             d.showRosters = false
           }
         }),
+
+      setScoreOnReveal: (on) => mutate((d) => void (d.scoreOnReveal = on)),
 
       toggleSound: () => mutate((d) => void (d.soundOn = !d.soundOn)),
 
@@ -611,6 +649,7 @@ export const useGame = create<Store>()((set, get) => {
           d.showScores = false
           d.showRosters = false
           d.showResultsBoard = false
+          d.scoreOnReveal = true
           d.timer = clearedTimer(TIMER_MS)
           d.roundTimer = clearedTimer(d.roundDurationMs)
           d.tiebreaker = {

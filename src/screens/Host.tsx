@@ -34,6 +34,7 @@ export function Host() {
   const round = roundOf(state, state.activeTeamId)
 
   const inTurn = state.phase === 'team-turn'
+  const canReveal = inTurn || state.phase === 'team-summary'
   const revealedCount = round.revealed.length
   const revealContext = `team:${state.activeTeamId}`
 
@@ -176,7 +177,7 @@ export function Host() {
         const answer = answers[index]
         if (!answer) return
         e.preventDefault()
-        if (inTurn) actions.toggleReveal(answer.id)
+        if (canReveal) actions.toggleReveal(answer.id)
         return
       }
 
@@ -188,7 +189,7 @@ export function Host() {
           }
           break
         case 'u':
-          if (inTurn) actions.undoLastReveal()
+          if (canReveal) actions.undoLastReveal()
           break
         case 'r':
           if (inTurn) actions.nextRotation()
@@ -205,7 +206,7 @@ export function Host() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [actions, confirmation, inTurn, question, state.showResultsBoard, state.timer.endsAt])
+  }, [actions, canReveal, confirmation, inTurn, question, state.showResultsBoard, state.timer.endsAt])
 
   return (
     <div className="host">
@@ -241,6 +242,17 @@ export function Host() {
             Trial Mode
           </button>
         )}
+        <button
+          className={`btn sm ${state.scoreOnReveal ? 'go' : 'danger'}`}
+          onClick={() => actions.setScoreOnReveal(!state.scoreOnReveal)}
+          title={
+            state.scoreOnReveal
+              ? 'Flips count toward the team score. Turn off for STEAL / show leftover cards.'
+              : 'Score on flip is OFF — cards flip for the audience without awarding points.'
+          }
+        >
+          {state.scoreOnReveal ? 'Score on flip: ON' : 'Score on flip: OFF'}
+        </button>
         <button
           className={`btn sm ${state.showRosters ? 'primary' : ''}`}
           onClick={() => actions.setShowRosters(!state.showRosters)}

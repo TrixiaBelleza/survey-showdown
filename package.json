@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Host-only two-screen game show app for Survey Showdown (Family Feud + Gimme 5 style)",
+  "description": "Host-only two-screen game show app for Mega Family Feud",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",

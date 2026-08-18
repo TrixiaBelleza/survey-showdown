@@ -1,4 +1,4 @@
-# Survey Showdown — Host Script
+# Mega Family Feud — Host Script
 
 Use this as a speaking guide. Lines in **bold** are what you say out loud.  
 *[Italics in brackets]* are private cues for you (click buttons, wait for laughs, etc.).  
@@ -23,7 +23,7 @@ Default team clock: **2:30** (change in Setup if you want).
 
 *[Lobby or rosters on Monitor 1. You’re unmuted and smiling.]*
 
-**Welcome, everyone! We’re playing Survey Showdown.**
+**Welcome, everyone! We’re playing Mega Family Feud.**
 
 **If you’ve ever watched Family Feud — or Gimme 5 — you’ll recognize the vibe: a survey-style question, a board of hidden answers, and a team trying to uncover as many as they can.**
 
@@ -154,6 +154,9 @@ Default team clock: **2:30** (change in Setup if you want).
 - Reject near-misses in chat (`we will miss you raf`, `We will miss you Raf`, trailing period, etc.) — exact only, or the race isn’t fair.
 - If two messages land at once, the **earlier timestamp** in Teams wins.
 - Award the point with Scoreboard **+1** on the stealer’s team (manual override is fine).
+- After **End Team Turn**, **Score on flip** turns OFF automatically. Flip leftover cards for the
+  audience — they show on Monitor 1 but do **not** add to that team’s score. Turn it back ON before
+  the next team’s real play (Next Team does this for you).
 - Optional: don’t run STEAL in Trial; save the hype for the real game.
 
 *[Show summary briefly. Next Team if you want a second demo team, or skip to wrap the trial.]*
@@ -197,7 +200,7 @@ Default team clock: **2:30** (change in Setup if you want).
 
 ## Spoken “rules in 30 seconds” (if someone joins late)
 
-**Survey Showdown: each team gets one question and ten hidden answers. You take turns guessing out loud. I flip cards if you’re right. Score = number of flips. Beat the clock. If time’s up and cards remain, STEAL opens — first to type “We will miss you, Raf” exactly in Teams chat gets one guess for +1 to their team. Most words wins; if tied, fastest last flip wins. No face-off, no strikes.**
+**Mega Family Feud: each team gets one question and ten hidden answers. You take turns guessing out loud. I flip cards if you’re right. Score = number of flips. Beat the clock. If time’s up and cards remain, STEAL opens — first to type “We will miss you, Raf” exactly in Teams chat gets one guess for +1 to their team. Most words wins; if tied, fastest last flip wins. No face-off, no strikes.**
 
 ---
 
@@ -211,9 +214,10 @@ Default team clock: **2:30** (change in Setup if you want).
 | Wrong / miss | “Not up there — next!” → **Next Player** / `Enter` |
 | Undo | “My bad — undoing.” → `U` |
 | 10s left | Warning sound — “Ten seconds!” |
-| Time / done | **End Team Turn** (`E`) |
+| Time / done | **End Team Turn** (`E`) — Score on flip auto-OFF for leftover reveals |
+| Show leftovers | Flip hidden cards while Score on flip is OFF (no points to that team) |
 | STEAL (cards left) | Call STEAL → watch Teams chat for exact `We will miss you, Raf` → one guess → **+1** on stealer’s team if correct |
-| Next | **Next Team →** |
+| Next | **Next Team →** (Score on flip back ON) |
 | All done | **Show Results Board** → celebrate → **End Game** |
 
 ### Shortcuts (Host only)
@@ -274,7 +278,7 @@ Assigned in team order while Trial Mode is on:
 
 ## After the game
 
-**Huge thanks for playing Survey Showdown!**  
+**Huge thanks for playing Mega Family Feud!**  
 *[Show Results Board / End Game. Read top teams: words + last-word times.]*  
 **Congrats to [winner]!** Everyone else — you survived the board, and that’s a win too.
 

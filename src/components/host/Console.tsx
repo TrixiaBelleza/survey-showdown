@@ -109,33 +109,89 @@ export function Console({ onRequestResetBoard }: Props) {
   }
 
   // ---------- team summary ----------
-  if (state.phase === 'team-summary' && team) {
-    const total = question?.answers.length ?? 10
+  if (state.phase === 'team-summary' && team && question) {
+    const total = question.answers.length
+    const hiddenLeft = total - round.revealed.length
     return (
       <div className="panel">
         <div className="panel-head">
           <span className="panel-title">Round Complete — {team.name}</span>
+          <span className="host-phase">
+            <span className="pip" />
+            Score {teamScore(state, team.id)} · Board {round.revealed.length}/{total}
+          </span>
         </div>
         <div className="panel-body console">
-          <div className="big-cta">
-            <h2 style={{ color: team.color }}>{team.name}</h2>
-            <div className="summary-score">
-              {teamScore(state, team.id)} / {total}
+          <div className="alert">
+            <span>
+              {hiddenLeft > 0
+                ? 'Turn over. For STEAL / show-remaining: turn OFF “Score on flip”, then flip leftover cards — audience sees them, this team does not earn points.'
+                : 'Board is fully revealed. Award STEAL points with Scoreboard +1 if needed, then next team.'}
+            </span>
+          </div>
+
+          <label className={`score-flip-toggle${state.scoreOnReveal ? '' : ' off'}`}>
+            <input
+              type="checkbox"
+              checked={state.scoreOnReveal}
+              onChange={(e) => actions.setScoreOnReveal(e.target.checked)}
+            />
+            <span>
+              <b>Score on flip</b>
+              {state.scoreOnReveal
+                ? ' — flips count toward this team’s score'
+                : ' — OFF: flips are show-only (STEAL / leftover board)'}
+            </span>
+          </label>
+
+          <div className="console-question">
+            <small>{question.category || 'Question'}</small>
+            <p>{question.text}</p>
+          </div>
+
+          <div className="turn-grid">
+            <div className="ans-list scroll">
+              {question.answers.map((a, i) => {
+                const revealed = round.revealed.includes(a.id)
+                const scored = (round.scoredRevealed ?? []).includes(a.id)
+                return (
+                  <button
+                    key={a.id}
+                    className={`ans-row${revealed ? ' revealed' : ''}${revealed && !scored ? ' show-only' : ''}`}
+                    onClick={() => actions.toggleReveal(a.id)}
+                    title={a.note}
+                  >
+                    <span className="ans-num">{i + 1}</span>
+                    <span className="ans-text">{a.text}</span>
+                    <span className="ans-state">
+                      {!revealed ? 'Hidden' : scored ? '✅ Scored' : '👁 Show only'}
+                      <span className="kbd">{i === 9 ? '0' : i + 1}</span>
+                    </span>
+                  </button>
+                )
+              })}
             </div>
-            <p>
-              Answers revealed. Adjust the score in the Scoreboard tab if needed, then move on to the next team.
-            </p>
-            <div className="btn-grid">
+            <div className="stack">
+              <div className="summary-score" style={{ fontSize: 56 }}>
+                {teamScore(state, team.id)}
+                <span style={{ fontSize: 16, display: 'block', color: 'var(--text-dim)' }}>/ {total} scored</span>
+              </div>
               <button className="btn xl primary" onClick={actions.nextTeam}>
                 Next Team →
               </button>
-              <button className="btn xl" onClick={() => actions.startTeam(team.id)}>
+              <button
+                className="btn xl"
+                onClick={() => {
+                  actions.setScoreOnReveal(true)
+                  actions.startTeam(team.id)
+                }}
+              >
                 Reopen This Turn
               </button>
+              <button className="btn ghost sm" onClick={() => actions.setShowScores(!state.showScores)}>
+                {state.showScores ? 'Hide scoreboard on Monitor 1' : 'Show scoreboard on Monitor 1'}
+              </button>
             </div>
-            <button className="btn ghost sm" onClick={() => actions.setShowScores(!state.showScores)}>
-              {state.showScores ? 'Hide scoreboard on Monitor 1' : 'Show scoreboard on Monitor 1'}
-            </button>
           </div>
         </div>
       </div>
@@ -155,7 +211,7 @@ export function Console({ onRequestResetBoard }: Props) {
           </span>
           <span className="host-phase">
             <span className="pip" />
-            Rotation {round.rotation} · {round.guesses} turns used
+            Rotation {round.rotation} · {round.guesses} turns used · Score {teamScore(state, team.id)}
           </span>
         </div>
         <div className="panel-body console">
@@ -168,8 +224,20 @@ export function Console({ onRequestResetBoard }: Props) {
             </div>
           )}
 
+          <label className={`score-flip-toggle${state.scoreOnReveal ? '' : ' off'}`}>
+            <input
+              type="checkbox"
+              checked={state.scoreOnReveal}
+              onChange={(e) => actions.setScoreOnReveal(e.target.checked)}
+            />
+            <span>
+              <b>Score on flip</b>
+              {state.scoreOnReveal ? ' — ON (normal play)' : ' — OFF (show cards without scoring)'}
+            </span>
+          </label>
+
           <div className="console-question">
-            <small>{question.category || 'Survey question'}</small>
+            <small>{question.category || 'Question'}</small>
             <p>{question.text}</p>
           </div>
 
@@ -191,17 +259,18 @@ export function Console({ onRequestResetBoard }: Props) {
             <div className="ans-list scroll">
               {question.answers.map((a, i) => {
                 const revealed = round.revealed.includes(a.id)
+                const scored = (round.scoredRevealed ?? []).includes(a.id)
                 return (
                   <button
                     key={a.id}
-                    className={`ans-row${revealed ? ' revealed' : ''}`}
+                    className={`ans-row${revealed ? ' revealed' : ''}${revealed && !scored ? ' show-only' : ''}`}
                     onClick={() => actions.toggleReveal(a.id)}
                     title={a.note}
                   >
                     <span className="ans-num">{i + 1}</span>
                     <span className="ans-text">{a.text}</span>
                     <span className="ans-state">
-                      {revealed ? '✅ Revealed' : 'Hidden'}
+                      {!revealed ? 'Hidden' : scored ? '✅ Scored' : '👁 Show only'}
                       <span className="kbd">{i === 9 ? '0' : i + 1}</span>
                     </span>
                   </button>
